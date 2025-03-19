@@ -1,0 +1,311 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String      @id @default(uuid())
+  email         String      @unique 
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  phoneNumber   String?
+  role          UserRole    @default(CLIENT)
+  status        UserStatus  @default(ACTIVE)
+  emailVerified Boolean     @default(false)
+  securityVersion Int       @default(1) // Incremented on password change or security events
+  
+  // Client relationship
+  clientId      String?
+  client        Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  
+  // Staff relationship
+  staffProfile  Staff?
+  
+  // Timestamps
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  // Relationships
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  tokens        Token[]
+  stateTransfers StateTransfer[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique 
+  expiresAt DateTime
+  
+  // Security audit fields
+  ipAddress String   @default("UNKNOWN") 
+  userAgent String   @default("UNKNOWN")
+  
+  // Refresh token tracking
+  lastRefreshedAt DateTime?
+  refreshCount   Int       @default(0)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([token])
+  @@index([userId])
+  @@index([ipAddress])
+  @@index([expiresAt])
+}
+
+model Token {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            TokenType
+  token           String    @unique 
+  securityVersion Int       // Must match user's securityVersion to be valid
+  expiresAt       DateTime
+  used            Boolean   @default(false)
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  
+  @@index([token])
+  @@index([userId, type])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id          String       @id @default(uuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      AuditAction
+  resource    ResourceType
+  details     Json?
+  timestamp   DateTime     @default(now())
+
+  @@index([userId, action])
+  @@index([timestamp])
+  @@index([action, resource])
+}
+
+model Client {
+  id               String         @id @default(uuid())
+  companyName      String
+  industry         String?
+  websiteUrl       String?
+  serviceStartDate DateTime?
+  serviceEndDate   DateTime?
+  notes            String?
+  
+  // Timestamps
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  
+  // Relationships
+  users            User[]
+  services         ClientService[]
+  contacts         Contact[]
+
+  @@index([companyName])
+}
+
+model Staff {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department      String?
+  title           String?
+  hireDate        DateTime?
+  notes           String?
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Service {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  categoryId  String
+  category    Category      @relation(fields: [categoryId], references: [id])
+  hasAI       Boolean       @default(false)
+  features    String[]
+  
+  // Timestamps
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  // Relationships
+  tiers       ServiceTier[]
+  clients     ClientService[]
+
+  @@index([categoryId])
+  @@index([name])
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relationships
+  services    Service[]
+}
+
+model ServiceTier {
+  id          String         @id @default(uuid())
+  name        String
+  serviceId   String
+  service     Service        @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  price       Float
+  features    String[]
+  description String?
+  
+  // Timestamps
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  
+  // Relationships
+  clients     ClientService[]
+
+  @@index([serviceId])
+}
+
+model Package {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  services    String[]  // IDs of included services
+  price       Float
+  discount    Float?    // Package discount
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model ClientService {
+  id          String      @id @default(uuid())
+  clientId    String
+  client      Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  serviceId   String
+  service     Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  tierId      String
+  tier        ServiceTier @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  startDate   DateTime
+  endDate     DateTime?
+  status      ServiceStatus @default(PENDING)
+  notes       String?
+  
+  // Timestamps
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([clientId])
+  @@index([serviceId])
+  @@index([status])
+}
+
+model Contact {
+  id          String    @id @default(uuid())
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  role        String?
+  isPrimary   Boolean   @default(false)
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([email])
+}
+
+model StateTransfer {
+  id          String    @id @default(uuid())
+  purpose     String    // StateTransferPurpose union type
+  data        Json
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  accessCount Int       @default(0)
+  
+  @@index([purpose])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+  CLIENT
+  OBSERVER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum TokenType {
+  ACCESS
+  REFRESH
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  REGISTER
+  PASSWORD_RESET
+  PASSWORD_CHANGE
+  PROFILE_UPDATE
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  EXPORT
+  IMPORT
+}
+
+enum ResourceType {
+  USER
+  CLIENT
+  STAFF
+  SERVICE
+  SERVICE_TIER
+  PACKAGE
+  SESSION
+  STATE_TRANSFER
+  CONTACT
+}
+
+enum ServiceStatus {
+  ACTIVE
+  PENDING
+  EXPIRED
+  SUSPENDED
+}
