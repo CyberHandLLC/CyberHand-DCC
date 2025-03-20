@@ -8,18 +8,20 @@ import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import Dashboard from './components/auth/Dashboard';
 import Unauthorized from './components/auth/Unauthorized';
+import Home from './pages/Home';
 
 const App: React.FC = () => {
   return (
     <ErrorProvider>
       <AuthProvider>
         <Router>
-          <div className="min-h-screen bg-gray-50">
+          <div className="min-h-screen">
             {/* Global error notifications - will appear for any error in the app */}
             <ErrorNotifications />
             
             <Routes>
               {/* Public routes */}
+              <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
@@ -64,9 +66,8 @@ const App: React.FC = () => {
                 } 
               />
               
-              {/* Default route redirect */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              {/* Catch-all route */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
         </Router>
