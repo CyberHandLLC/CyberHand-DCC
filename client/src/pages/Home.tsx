@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
-import HorizontalScroll from '../components/HorizontalScroll';
+import MainLayout from '../layouts/MainLayout';
+import DynamicContentSection from '../components/DynamicContentSection';
 
 // Import hero sections
 import HomeHero from '../components/hero/HomeHero';
@@ -13,7 +12,7 @@ import PackagesHero from '../components/hero/PackagesHero';
 import ContactHero from '../components/hero/ContactHero';
 
 // Define sections for the horizontal scroll
-const SECTIONS = [
+const HOME_SECTIONS = [
   { id: 'Home', label: 'Home' },
   { id: 'Services', label: 'Services' },
   { id: 'AiIntegration', label: 'AI Integration' },
@@ -32,7 +31,7 @@ const Home: React.FC = () => {
   useEffect(() => {
     const hash = location.hash.replace('#', '');
     
-    if (hash && SECTIONS.some(section => section.id === hash)) {
+    if (hash && HOME_SECTIONS.some(section => section.id === hash)) {
       setActiveSection(hash);
     }
   }, [location]);
@@ -48,7 +47,7 @@ const Home: React.FC = () => {
   };
 
   // Handle navigation
-  const handleNavigate = (sectionId: string) => {
+  const handleSectionChange = (sectionId: string) => {
     setActiveSection(sectionId);
   };
 
@@ -94,19 +93,12 @@ const Home: React.FC = () => {
         </script>
       </div>
 
-      {/* Fixed Navbar */}
-      <Navbar 
-        onNavigate={handleNavigate} 
-        theme={theme}
-        onThemeToggle={toggleTheme}
-      />
-
       {/* Main Content with Horizontal Scroll */}
-      <main className="pt-16 relative w-full h-[calc(100vh-64px)]">
-        <HorizontalScroll
-          sections={SECTIONS}
+      <div className="pt-16 relative w-full h-[calc(100vh-64px)]">
+        <DynamicContentSection
+          sections={HOME_SECTIONS}
           activeSection={activeSection}
-          onSectionChange={handleNavigate}
+          onSectionChange={handleSectionChange}
         >
           {/* Home section */}
           <div className="w-full h-full flex items-center justify-center px-4 md:px-8 lg:px-12">
@@ -149,13 +141,8 @@ const Home: React.FC = () => {
               <ContactHero theme={theme} />
             </div>
           </div>
-        </HorizontalScroll>
-      </main>
-
-      {/* Footer - only visible in Contact section */}
-      {activeSection === 'Contact' && (
-        <Footer theme={theme} />
-      )}
+        </DynamicContentSection>
+      </div>
     </div>
   );
 };

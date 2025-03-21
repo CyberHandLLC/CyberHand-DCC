@@ -1,24 +1,29 @@
 import React, { useState, useEffect, useRef, ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ScrollArea } from './ui/ScrollArea';
 
 interface Section {
   id: string;
   label: string;
 }
 
-interface HorizontalScrollProps {
+interface DynamicContentSectionProps {
   sections: Section[];
   children: ReactNode[];
   activeSection?: string;
   onSectionChange?: (sectionId: string) => void;
+  showArrows?: boolean;
+  showIndicators?: boolean;
 }
 
-export function HorizontalScroll({ 
+export function DynamicContentSection({ 
   sections, 
   children, 
   activeSection,
-  onSectionChange 
-}: HorizontalScrollProps) {
+  onSectionChange,
+  showArrows = true,
+  showIndicators = true
+}: DynamicContentSectionProps) {
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isScrolling, setIsScrolling] = useState(false);
@@ -33,6 +38,17 @@ export function HorizontalScroll({
       }
     }
   }, [activeSection, sections]);
+
+  // Scroll to section when active index changes
+  useEffect(() => {
+    if (containerRef.current) {
+      const containerWidth = containerRef.current.clientWidth;
+      containerRef.current.scrollTo({
+        left: activeSectionIndex * containerWidth,
+        behavior: 'smooth'
+      });
+    }
+  }, [activeSectionIndex]);
 
   const scrollToSection = (index: number) => {
     if (index < 0 || index >= sections.length) return;
@@ -112,63 +128,80 @@ export function HorizontalScroll({
     setTouchStart(null);
   };
 
+  // Determine if arrows should be shown
+  const showLeftArrow = showArrows && activeSectionIndex > 0;
+  const showRightArrow = showArrows && activeSectionIndex < sections.length - 1;
+
   return (
     <div className="relative w-full h-full overflow-hidden">
-      {/* Navigation arrows - hidden on small screens */}
-      <button
-        onClick={navigatePrev}
-        disabled={activeSectionIndex === 0}
-        className="hidden md:block absolute left-4 top-1/2 z-10 transform -translate-y-1/2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 disabled:opacity-30 text-white w-10 h-10 flex items-center justify-center"
-        aria-label="Previous section"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </button>
+      {/* Navigation arrows - hidden on small screens and conditionally shown based on position */}
+      {showLeftArrow && (
+        <button
+          onClick={navigatePrev}
+          className="hidden md:block absolute left-8 top-1/2 z-30 transform -translate-y-1/2 rounded-full bg-black/20 hover:bg-black/30 border border-white/20 text-white dark:text-white text-white w-12 h-12 flex items-center justify-center shadow-lg"
+          aria-label="Previous section"
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+      )}
 
-      <button
-        onClick={navigateNext}
-        disabled={activeSectionIndex === sections.length - 1}
-        className="hidden md:block absolute right-4 top-1/2 z-10 transform -translate-y-1/2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 disabled:opacity-30 text-white w-10 h-10 flex items-center justify-center"
-        aria-label="Next section"
-      >
-        <ChevronRight className="h-5 w-5" />
-      </button>
+      {showRightArrow && (
+        <button
+          onClick={navigateNext}
+          className="hidden md:block absolute right-8 top-1/2 z-30 transform -translate-y-1/2 rounded-full bg-black/20 hover:bg-black/30 border border-white/20 text-white dark:text-white w-12 h-12 flex items-center justify-center shadow-lg"
+          aria-label="Next section"
+        >
+          <ChevronRight className="h-6 w-6" />
+        </button>
+      )}
 
       {/* Main scroll container */}
       <div
         ref={containerRef}
-        className="scroll-container flex w-full h-full overflow-x-scroll snap-x snap-mandatory"
+        className="scroll-container flex w-full h-full overflow-x-scroll snap-x snap-mandatory scrollbar-hide"
         onScroll={handleScroll}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        style={{ scrollSnapType: 'x mandatory' }}
+        style={{ 
+          scrollSnapType: 'x mandatory',
+          scrollbarWidth: 'none',  /* Firefox */
+          msOverflowStyle: 'none'  /* IE and Edge */
+        }}
       >
         {children.map((child, index) => (
           <div
             key={sections[index]?.id || index}
-            className="min-w-full w-full h-full flex-shrink-0 snap-center"
+            className="min-w-full w-full h-full flex-shrink-0 snap-center pb-16"
           >
-            {child}
+            <ScrollArea className="h-full w-full">
+              <div className="pt-6 pb-12">
+                {child}
+              </div>
+            </ScrollArea>
           </div>
         ))}
       </div>
 
       {/* Section indicators */}
-      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-2">
-        {sections.map((section, index) => (
-          <button
-            key={section.id}
-            className={`w-2 h-2 rounded-full transition-all ${
-              activeSectionIndex === index 
-                ? "bg-white w-6" 
-                : "bg-white/30 hover:bg-white/50"
-            }`}
-            onClick={() => scrollToSection(index)}
-            aria-label={`Go to ${section.label} section`}
-          />
-        ))}
-      </div>
+      {showIndicators && sections.length > 1 && (
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20 bg-black/10 backdrop-blur-sm px-4 py-2 rounded-full">
+          {sections.map((section, index) => (
+            <button
+              key={section.id}
+              className={`h-2 rounded-full transition-all ${
+                activeSectionIndex === index 
+                  ? "bg-white w-6" 
+                  : "bg-white/30 hover:bg-white/50"
+              }`}
+              onClick={() => scrollToSection(index)}
+              aria-label={`Go to ${section.label} section`}
+              title={section.label}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-export default HorizontalScroll;
+export default DynamicContentSection;

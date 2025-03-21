@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Menu, Moon, Sun } from 'lucide-react';
 
 interface NavbarProps {
-  onNavigate: (section: string) => void;
+  onNavigate: (path: string) => void;
   theme?: 'light' | 'dark';
   onThemeToggle?: () => void;
 }
@@ -14,6 +15,7 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const location = useLocation();
   
   // Listen for scroll to add background to navbar when scrolled
   useEffect(() => {
@@ -25,21 +27,38 @@ const Navbar: React.FC<NavbarProps> = ({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
   
-  const handleNavClick = (section: string) => {
-    onNavigate(section);
+  const handleNavClick = (path: string) => {
+    onNavigate(path);
     setMobileMenuOpen(false);
   };
 
-  const navLinks = [
-    { id: 'Home', label: 'Home' },
-    { id: 'Services', label: 'Services' },
-    { id: 'AiIntegration', label: 'AI Integration' },
-    { id: 'OurWork', label: 'Our Work' },
-    { id: 'Packages', label: 'Packages' },
-    { id: 'Contact', label: 'Contact' }
+  // Define main navigation links - these will be visible in the nav bar
+  const mainNavLinks = [
+    { path: '/', label: 'Home' },
+    { path: '/services', label: 'Services' },
+    { path: '/ai-integration', label: 'AI Integration' },
+    { path: '/cloud-hosting', label: 'Cloud Hosting' },
+    { path: '/marketing', label: 'Marketing' },
+    { path: '/blog', label: 'Blog' },
+    { path: '/resources', label: 'Resources' },
+    { path: '/contact', label: 'Contact' }
+  ];
+
+  // Define links that require authentication
+  const authLinks = [
+    { path: '/dashboard', label: 'Dashboard', requiresAuth: true }
   ];
 
   const isDark = theme === 'dark';
+  const isHomePage = location.pathname === '/';
+
+  // If we're on the home page, handle section navigation
+  const getActivePath = (path: string) => {
+    if (isHomePage && path === '/') {
+      return path;
+    }
+    return location.pathname === path;
+  };
 
   return (
     <header 
@@ -51,19 +70,39 @@ const Navbar: React.FC<NavbarProps> = ({
     >
       <div className="container mx-auto px-4 h-full flex items-center justify-between">
         {/* Logo */}
-        <div className={`text-xl font-bold ${isDark ? 'text-white' : 'text-cyberhand-dark'}`}>
+        <div 
+          className={`text-xl font-bold ${isDark ? 'text-white' : 'text-cyberhand-dark'} cursor-pointer`}
+          onClick={() => handleNavClick('/')}
+        >
           <span className="font-montserrat">CyberHand</span>
         </div>
         
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-8">
-          {navLinks.map(link => (
+        <nav className="hidden md:flex items-center space-x-6">
+          {mainNavLinks.map(link => (
             <button
-              key={link.id}
+              key={link.path}
               className={`hover:text-cyberhand-green transition-colors text-sm ${
-                isDark ? 'text-white/90' : 'text-cyberhand-dark/90'
+                getActivePath(link.path) 
+                  ? isDark ? 'text-cyberhand-green' : 'text-cyberhand-green'
+                  : isDark ? 'text-white/90' : 'text-cyberhand-dark/90'
               }`}
-              onClick={() => handleNavClick(link.id)}
+              onClick={() => handleNavClick(link.path)}
+            >
+              {link.label.toUpperCase()}
+            </button>
+          ))}
+          
+          {/* Authentication links */}
+          {authLinks.map(link => (
+            <button
+              key={link.path}
+              className={`hover:text-cyberhand-green transition-colors text-sm ${
+                getActivePath(link.path) 
+                  ? isDark ? 'text-cyberhand-green' : 'text-cyberhand-green'
+                  : isDark ? 'text-white/90' : 'text-cyberhand-dark/90'
+              }`}
+              onClick={() => handleNavClick(link.path)}
             >
               {link.label.toUpperCase()}
             </button>
@@ -110,13 +149,30 @@ const Navbar: React.FC<NavbarProps> = ({
             : 'bg-white/90 backdrop-blur-md border-cyberhand-dark/10'
         }`}>
           <div className="container mx-auto px-4 py-2 space-y-1">
-            {navLinks.map(link => (
+            {mainNavLinks.map(link => (
               <button
-                key={link.id}
+                key={link.path}
                 className={`block w-full text-left py-3 transition-colors ${
-                  isDark ? 'text-white/80 hover:text-white' : 'text-cyberhand-dark/80 hover:text-cyberhand-dark'
+                  getActivePath(link.path)
+                    ? 'text-cyberhand-green'
+                    : isDark ? 'text-white/80 hover:text-white' : 'text-cyberhand-dark/80 hover:text-cyberhand-dark'
                 }`}
-                onClick={() => handleNavClick(link.id)}
+                onClick={() => handleNavClick(link.path)}
+              >
+                {link.label}
+              </button>
+            ))}
+            
+            {/* Authentication links for mobile */}
+            {authLinks.map(link => (
+              <button
+                key={link.path}
+                className={`block w-full text-left py-3 transition-colors ${
+                  getActivePath(link.path)
+                    ? 'text-cyberhand-green'
+                    : isDark ? 'text-white/80 hover:text-white' : 'text-cyberhand-dark/80 hover:text-cyberhand-dark'
+                }`}
+                onClick={() => handleNavClick(link.path)}
               >
                 {link.label}
               </button>
