@@ -1,10 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { CalendarDays, Search, User, Download, DollarSign, Users, ShoppingCart, Activity } from 'lucide-react';
 
+// Mock data for the dashboard
+const clients = [
+  { id: 1, name: "Alicia Koch", email: "alicia@example.com", role: "Admin" },
+  { id: 2, name: "John Smith", email: "john@example.com", role: "Client" },
+  { id: 3, name: "Sarah Lee", email: "sarah@example.com", role: "Client" }
+];
+
+const recentSales = [
+  { id: 1, name: "Olivia Martin", email: "olivia.martin@email.com", amount: 1999 },
+  { id: 2, name: "Jackson Lee", email: "jackson.lee@email.com", amount: 39 },
+  { id: 3, name: "Isabella Nguyen", email: "isabella.nguyen@email.com", amount: 299 },
+  { id: 4, name: "William Kim", email: "will@email.com", amount: 99 },
+  { id: 5, name: "Sofia Davis", email: "sofia.davis@email.com", amount: 39 }
+];
+
+// Dashboard component
 const Dashboard: React.FC = () => {
   const { user, logout, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("Overview");
+  const [selectedClient, setSelectedClient] = useState(clients[0]);
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState("Overview");
 
   const handleLogout = async () => {
     await logout();
@@ -25,184 +46,245 @@ const Dashboard: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // Role-specific content components
-  const AdminContent = () => (
-    <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded shadow-sm">
-      <h3 className="text-lg font-semibold text-blue-700 mb-2">Admin Controls</h3>
-      <ul className="list-disc pl-5 space-y-1">
-        <li>Manage all users and permissions</li>
-        <li>View system-wide analytics</li>
-        <li>Configure platform settings</li>
-        <li>Access audit logs and security monitoring</li>
-      </ul>
-      <button
-        onClick={() => navigate('/admin/users')}
-        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-      >
-        User Management
-      </button>
-    </div>
-  );
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
 
-  const StaffContent = () => (
-    <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded shadow-sm">
-      <h3 className="text-lg font-semibold text-green-700 mb-2">Staff Tools</h3>
-      <ul className="list-disc pl-5 space-y-1">
-        <li>Manage client accounts</li>
-        <li>View assigned projects</li>
-        <li>Process service requests</li>
-        <li>Generate client reports</li>
-      </ul>
-      <button
-        onClick={() => navigate('/staff/clients')}
-        className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-      >
-        Client Management
-      </button>
-    </div>
-  );
-
-  const ClientContent = () => (
-    <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded shadow-sm">
-      <h3 className="text-lg font-semibold text-purple-700 mb-2">Client Dashboard</h3>
-      <ul className="list-disc pl-5 space-y-1">
-        <li>View your active services</li>
-        <li>Submit new service requests</li>
-        <li>Check project status updates</li>
-        <li>Manage billing and invoices</li>
-      </ul>
-      <button
-        onClick={() => navigate('/client/services')}
-        className="mt-4 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-      >
-        My Services
-      </button>
-    </div>
-  );
-
-  const ObserverContent = () => (
-    <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded shadow-sm">
-      <h3 className="text-lg font-semibold text-yellow-700 mb-2">Observer View</h3>
-      <ul className="list-disc pl-5 space-y-1">
-        <li>View available services</li>
-        <li>Browse case studies and resources</li>
-        <li>Access public reports and information</li>
-        <li>Limited read-only access</li>
-      </ul>
-      <button
-        onClick={() => navigate('/services')}
-        className="mt-4 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
-      >
-        Browse Services
-      </button>
-    </div>
-  );
-
-  // Render content based on user role
-  const renderRoleContent = () => {
-    switch (user.role) {
-      case 'ADMIN':
-        return <AdminContent />;
-      case 'STAFF':
-        return <StaffContent />;
-      case 'CLIENT':
-        return <ClientContent />;
-      case 'OBSERVER':
-        return <ObserverContent />;
-      default:
-        return (
-          <div className="bg-gray-50 border border-gray-200 p-4 rounded">
-            <p>Welcome to the dashboard. Your role-specific content is not available.</p>
-          </div>
-        );
+  // Dashboard metrics (role-based)
+  const getDashboardMetrics = () => {
+    if (user.role === 'Admin' || user.role === 'Staff') {
+      return {
+        totalRevenue: { value: 45231.89, change: '+20.1%' },
+        subscriptions: { value: 2350, change: '+180.1%' },
+        sales: { value: 12234, change: '+19%' },
+        activeNow: { value: 573, change: '+201' }
+      };
+    } else {
+      return {
+        totalRevenue: { value: 1250.00, change: '+5.1%' },
+        subscriptions: { value: 3, change: '+1' },
+        sales: { value: 24, change: '+12%' },
+        activeNow: { value: 2, change: '+1' }
+      };
     }
   };
 
+  const metrics = getDashboardMetrics();
+
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-        >
-          Logout
-        </button>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4">Welcome, {user.firstName}!</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p className="text-gray-600">
-              <span className="font-medium text-gray-800">Email:</span> {user.email}
-            </p>
-            <p className="text-gray-600">
-              <span className="font-medium text-gray-800">Role:</span> {user.role}
-            </p>
-            {user.status && (
-              <p className="text-gray-600">
-                <span className="font-medium text-gray-800">Status:</span> {user.status}
-              </p>
-            )}
+    <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-cyberhand-dark dark:text-white">
+      {/* Top navigation bar */}
+      <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-cyberhand-blue px-4 py-3 flex justify-between items-center">
+        {/* Client selector dropdown */}
+        <div className="relative">
+          <button 
+            className="flex items-center space-x-2 px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-800"
+            onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
+          >
+            <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-xs">{selectedClient.name.charAt(0)}</span>
+            </div>
+            <span>{selectedClient.name}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="feather feather-chevron-down">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          
+          {/* Dropdown menu */}
+          {isClientDropdownOpen && (
+            <div className="absolute top-full left-0 mt-1 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50">
+              <div className="py-1">
+                {clients.map(client => (
+                  <button
+                    key={client.id}
+                    className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => {
+                      setSelectedClient(client);
+                      setIsClientDropdownOpen(false);
+                    }}
+                  >
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0 mr-2">
+                        <span className="text-white text-xs">{client.name.charAt(0)}</span>
+                      </div>
+                      <span>{client.name}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Main navigation tabs */}
+        <div className="hidden md:flex space-x-1">
+          {["Overview", "Customers", "Products", "Settings"].map(tab => (
+            <button
+              key={tab}
+              className={`px-3 py-2 rounded-md text-sm font-medium ${
+                activeTab === tab
+                  ? "bg-gray-200 dark:bg-gray-700"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+        
+        {/* Search bar */}
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-gray-400" />
           </div>
-          <div>
-            {user.emailVerified !== undefined && (
-              <p className="text-gray-600">
-                <span className="font-medium text-gray-800">Email Verified:</span>{' '}
-                {user.emailVerified ? 'Yes' : 'No'}
-              </p>
-            )}
-            {user.createdAt && (
-              <p className="text-gray-600">
-                <span className="font-medium text-gray-800">Member Since:</span>{' '}
-                {new Date(user.createdAt).toLocaleDateString()}
-              </p>
-            )}
-          </div>
+          <input
+            type="text"
+            className="bg-white dark:bg-gray-800 focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md leading-5 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+            placeholder="Search..."
+          />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Role-specific content */}
-        <div className="col-span-1 lg:col-span-2">
-          <h2 className="text-xl font-semibold mb-4">Your Dashboard</h2>
-          {renderRoleContent()}
+      {/* Dashboard content */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center border border-gray-300 dark:border-gray-700 rounded-md p-1 px-3">
+              <CalendarDays className="h-4 w-4 mr-2" />
+              <span className="text-sm">Jan 20, 2023 - Feb 09, 2023</span>
+            </div>
+            <button 
+              className="flex items-center bg-gray-900 dark:bg-gray-800 text-white px-4 py-2 rounded-md"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </button>
+          </div>
         </div>
-
-        {/* Recent Activity */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="text-center text-gray-500 py-8">
-              <p>No recent activity to display</p>
+        
+        {/* Sub-navigation for Overview section */}
+        <div className="border-b border-gray-200 dark:border-gray-800 mb-6">
+          <div className="flex space-x-8">
+            {["Overview", "Analytics", "Reports", "Notifications"].map(tab => (
+              <button
+                key={tab}
+                className={`py-2 px-1 text-sm font-medium border-b-2 ${
+                  activeSubTab === tab
+                    ? "border-black dark:border-white text-black dark:text-white"
+                    : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
+                onClick={() => setActiveSubTab(tab)}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Metrics cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Total Revenue */}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Revenue</h3>
+              <DollarSign className="h-4 w-4 text-gray-400" />
+            </div>
+            <div className="text-2xl font-bold">{formatCurrency(metrics.totalRevenue.value)}</div>
+            <div className="mt-1 text-xs text-green-500">
+              {metrics.totalRevenue.change} from last month
+            </div>
+          </div>
+          
+          {/* Subscriptions */}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Subscriptions</h3>
+              <Users className="h-4 w-4 text-gray-400" />
+            </div>
+            <div className="text-2xl font-bold">+{metrics.subscriptions.value}</div>
+            <div className="mt-1 text-xs text-green-500">
+              {metrics.subscriptions.change} from last month
+            </div>
+          </div>
+          
+          {/* Sales */}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Sales</h3>
+              <ShoppingCart className="h-4 w-4 text-gray-400" />
+            </div>
+            <div className="text-2xl font-bold">+{metrics.sales.value}</div>
+            <div className="mt-1 text-xs text-green-500">
+              {metrics.sales.change} from last month
+            </div>
+          </div>
+          
+          {/* Active Now */}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Now</h3>
+              <Activity className="h-4 w-4 text-gray-400" />
+            </div>
+            <div className="text-2xl font-bold">+{metrics.activeNow.value}</div>
+            <div className="mt-1 text-xs text-green-500">
+              {metrics.activeNow.change} since last hour
             </div>
           </div>
         </div>
-
-        {/* Quick Actions */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
+        
+        {/* Charts and recent sales section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Chart */}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+            <h3 className="text-lg font-medium mb-4">Overview</h3>
+            <div className="h-64 flex items-end space-x-2">
+              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((month, i) => {
+                // Generate random heights for the chart bars
+                const heights = [65, 40, 35, 90, 85, 75, 70, 45, 50, 40, 35, 55];
+                return (
+                  <div key={month} className="flex-1 flex flex-col items-center">
+                    <div 
+                      className="w-full bg-green-400 dark:bg-green-500 rounded-t" 
+                      style={{ height: `${heights[i]}%` }}
+                    ></div>
+                    <div className="text-xs mt-2 text-gray-500">{month}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Recent sales */}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+            <h3 className="text-lg font-medium mb-4">Recent Sales</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              You made 265 sales this month.
+            </p>
             <div className="space-y-4">
-              <button className="w-full flex items-center justify-between px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded transition-colors">
-                <span>Update Profile</span>
-                <svg className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              </button>
-              <button className="w-full flex items-center justify-between px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded transition-colors">
-                <span>Change Password</span>
-                <svg className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              </button>
-              <button className="w-full flex items-center justify-between px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded transition-colors">
-                <span>Notification Settings</span>
-                <svg className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              </button>
+              {recentSales.map(sale => (
+                <div key={sale.id} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                      <User className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="font-medium">{sale.name}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{sale.email}</div>
+                    </div>
+                  </div>
+                  <div className="font-medium">
+                    +{formatCurrency(sale.amount).replace('$', '')}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
