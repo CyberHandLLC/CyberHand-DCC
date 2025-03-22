@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, Moon, Sun } from 'lucide-react';
+import { Menu, Moon, Sun, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface NavbarProps {
   onNavigate: (path: string) => void;
@@ -15,7 +15,9 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
   const location = useLocation();
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
   // Listen for scroll to add background to navbar when scrolled
   useEffect(() => {
@@ -27,21 +29,41 @@ const Navbar: React.FC<NavbarProps> = ({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
   
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setServicesDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const handleNavClick = (path: string) => {
     onNavigate(path);
     setMobileMenuOpen(false);
+    setServicesDropdownOpen(false);
   };
 
   // Define main navigation links - these will be visible in the nav bar
   const mainNavLinks = [
     { path: '/', label: 'Home' },
-    { path: '/services', label: 'Services' },
-    { path: '/ai-integration', label: 'AI Integration' },
-    { path: '/cloud-hosting', label: 'Cloud Hosting' },
-    { path: '/marketing', label: 'Marketing' },
+    { path: '/services', label: 'Services', hasDropdown: true },
     { path: '/blog', label: 'Blog' },
     { path: '/resources', label: 'Resources' },
     { path: '/contact', label: 'Contact' }
+  ];
+
+  // Define services dropdown links
+  const servicesLinks = [
+    { path: '/services', label: 'All Services' },
+    { path: '/ai-integration', label: 'AI Integration' },
+    { path: '/cloud-hosting', label: 'Cloud Hosting' },
+    { path: '/marketing', label: 'Marketing' }
   ];
 
   // Define links that require authentication
@@ -52,12 +74,20 @@ const Navbar: React.FC<NavbarProps> = ({
   const isDark = theme === 'dark';
   const isHomePage = location.pathname === '/';
 
+  // Check if the current path is in the services dropdown
+  const isInServicesDropdown = servicesLinks.some(link => location.pathname === link.path);
+
   // If we're on the home page, handle section navigation
   const getActivePath = (path: string) => {
     if (isHomePage && path === '/') {
       return path;
     }
     return location.pathname === path;
+  };
+
+  const toggleServicesDropdown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setServicesDropdownOpen(!servicesDropdownOpen);
   };
 
   return (
@@ -80,17 +110,59 @@ const Navbar: React.FC<NavbarProps> = ({
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-6">
           {mainNavLinks.map(link => (
-            <button
-              key={link.path}
-              className={`hover:text-cyberhand-green transition-colors text-sm ${
-                getActivePath(link.path) 
-                  ? isDark ? 'text-cyberhand-green' : 'text-cyberhand-green'
-                  : isDark ? 'text-white/90' : 'text-cyberhand-dark/90'
-              }`}
-              onClick={() => handleNavClick(link.path)}
-            >
-              {link.label.toUpperCase()}
-            </button>
+            link.hasDropdown ? (
+              <div key={link.path} className="relative" ref={dropdownRef}>
+                <button
+                  className={`hover:text-cyberhand-green transition-colors text-sm flex items-center gap-1 ${
+                    getActivePath(link.path) || isInServicesDropdown
+                      ? isDark ? 'text-cyberhand-green' : 'text-cyberhand-green'
+                      : isDark ? 'text-white/90' : 'text-cyberhand-dark/90'
+                  }`}
+                  onClick={toggleServicesDropdown}
+                >
+                  {link.label.toUpperCase()}
+                  {servicesDropdownOpen ? 
+                    <ChevronUp className="h-4 w-4" /> : 
+                    <ChevronDown className="h-4 w-4" />
+                  }
+                </button>
+                
+                {/* Services Dropdown */}
+                {servicesDropdownOpen && (
+                  <div className={`absolute top-full left-0 mt-2 w-48 rounded-md shadow-lg ${
+                    isDark ? 'bg-cyberhand-dark border border-gray-700' : 'bg-white border border-gray-200'
+                  }`}>
+                    <div className="py-1">
+                      {servicesLinks.map(serviceLink => (
+                        <button
+                          key={serviceLink.path}
+                          className={`block w-full text-left px-4 py-2 text-sm ${
+                            getActivePath(serviceLink.path) 
+                              ? 'text-cyberhand-green'
+                              : isDark ? 'text-white hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-100'
+                          }`}
+                          onClick={() => handleNavClick(serviceLink.path)}
+                        >
+                          {serviceLink.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                key={link.path}
+                className={`hover:text-cyberhand-green transition-colors text-sm ${
+                  getActivePath(link.path) 
+                    ? isDark ? 'text-cyberhand-green' : 'text-cyberhand-green'
+                    : isDark ? 'text-white/90' : 'text-cyberhand-dark/90'
+                }`}
+                onClick={() => handleNavClick(link.path)}
+              >
+                {link.label.toUpperCase()}
+              </button>
+            )
           ))}
           
           {/* Authentication links */}
@@ -149,19 +221,59 @@ const Navbar: React.FC<NavbarProps> = ({
             : 'bg-white/90 backdrop-blur-md border-cyberhand-dark/10'
         }`}>
           <div className="container mx-auto px-4 py-2 space-y-1">
-            {mainNavLinks.map(link => (
-              <button
-                key={link.path}
-                className={`block w-full text-left py-3 transition-colors ${
-                  getActivePath(link.path)
-                    ? 'text-cyberhand-green'
-                    : isDark ? 'text-white/80 hover:text-white' : 'text-cyberhand-dark/80 hover:text-cyberhand-dark'
-                }`}
-                onClick={() => handleNavClick(link.path)}
-              >
-                {link.label}
-              </button>
-            ))}
+            {mainNavLinks.map(link => 
+              link.hasDropdown ? (
+                <div key={link.path}>
+                  <button
+                    className={`flex w-full justify-between items-center text-left py-3 transition-colors ${
+                      getActivePath(link.path) || isInServicesDropdown
+                        ? 'text-cyberhand-green'
+                        : isDark ? 'text-white/80 hover:text-white' : 'text-cyberhand-dark/80 hover:text-cyberhand-dark'
+                    }`}
+                    onClick={toggleServicesDropdown}
+                  >
+                    <span>{link.label}</span>
+                    {servicesDropdownOpen ? 
+                      <ChevronUp className="h-4 w-4" /> : 
+                      <ChevronDown className="h-4 w-4" />
+                    }
+                  </button>
+                  
+                  {/* Mobile Services Dropdown */}
+                  {servicesDropdownOpen && (
+                    <div className="pl-4 space-y-1 mt-1 mb-2">
+                      {servicesLinks.map(serviceLink => (
+                        serviceLink.path !== '/services' && (
+                          <button
+                            key={serviceLink.path}
+                            className={`block w-full text-left py-2 text-sm ${
+                              getActivePath(serviceLink.path) 
+                                ? 'text-cyberhand-green'
+                                : isDark ? 'text-white/70 hover:text-white' : 'text-cyberhand-dark/70 hover:text-cyberhand-dark'
+                            }`}
+                            onClick={() => handleNavClick(serviceLink.path)}
+                          >
+                            {serviceLink.label}
+                          </button>
+                        )
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  key={link.path}
+                  className={`block w-full text-left py-3 transition-colors ${
+                    getActivePath(link.path)
+                      ? 'text-cyberhand-green'
+                      : isDark ? 'text-white/80 hover:text-white' : 'text-cyberhand-dark/80 hover:text-cyberhand-dark'
+                  }`}
+                  onClick={() => handleNavClick(link.path)}
+                >
+                  {link.label}
+                </button>
+              )
+            )}
             
             {/* Authentication links for mobile */}
             {authLinks.map(link => (
