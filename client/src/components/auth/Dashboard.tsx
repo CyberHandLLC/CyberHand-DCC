@@ -1,7 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { CalendarDays, Search, User, Download, DollarSign, Users, ShoppingCart, Activity, Sun } from 'lucide-react';
+import { 
+  CalendarDays, 
+  Search, 
+  User, 
+  Download, 
+  DollarSign, 
+  Users, 
+  ShoppingCart, 
+  Activity, 
+  Sun, 
+  Menu, 
+  X, 
+  ChevronDown,
+  MoreVertical
+} from 'lucide-react';
 
 // Mock data for the dashboard
 const clients = [
@@ -26,6 +40,23 @@ const Dashboard: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState(clients[0]);
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState("Overview");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileSubMenuOpen, setIsMobileSubMenuOpen] = useState(false);
+  const clientDropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(event.target as Node)) {
+        setIsClientDropdownOpen(false);
+      }
+    }
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -78,35 +109,23 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-[#0a101f] dark:text-white flex flex-col">
-      {/* Main Navigation Bar */}
-      <header className="bg-[#162238] text-white py-3 px-6 flex justify-between items-center border-b border-[#30384a]">
-        <div className="flex items-center">
-          <Link to="/" className="text-lg font-bold mr-10">CyberHand</Link>
-          <nav className="hidden md:flex space-x-6">
-            <Link to="/" className="text-sm hover:text-gray-300">HOME</Link>
-            <Link to="/services" className="text-sm hover:text-gray-300">SERVICES</Link>
-            <Link to="/ai-integration" className="text-sm hover:text-gray-300">AI INTEGRATION</Link>
-            <Link to="/cloud-hosting" className="text-sm hover:text-gray-300">CLOUD HOSTING</Link>
-            <Link to="/marketing" className="text-sm hover:text-gray-300">MARKETING</Link>
-            <Link to="/blog" className="text-sm hover:text-gray-300">BLOG</Link>
-            <Link to="/resources" className="text-sm hover:text-gray-300">RESOURCES</Link>
-            <Link to="/contact" className="text-sm hover:text-gray-300">CONTACT</Link>
-            <Link to="/dashboard" className="text-sm text-[#5cebdf] font-medium">DASHBOARD</Link>
-          </nav>
-        </div>
-        <button className="rounded-full p-2 bg-[#162238] hover:bg-[#1e2c4a]">
-          <Sun className="h-5 w-5" />
-        </button>
-      </header>
-
       {/* Dashboard Container */}
-      <div className="w-full max-w-[1200px] mx-auto my-8 px-4">
+      <div className="w-full max-w-[1200px] mx-auto py-4 px-3 sm:py-6 sm:px-4 md:my-8">
         {/* Dashboard Header */}
-        <div className="bg-[#162238] rounded-t-lg p-3 px-6 flex justify-between items-center">
-          <h1 className="text-xl font-medium text-white">Dashboard</h1>
+        <div className="bg-[#162238] rounded-t-lg p-2 sm:p-3 px-3 sm:px-6 flex justify-between items-center">
+          <h1 className="text-lg sm:text-xl font-medium text-white">Dashboard</h1>
           
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center">
+          <div className="flex items-center space-x-2 sm:space-x-4">
+            {/* Mobile Menu Button */}
+            <button 
+              className="p-1.5 bg-[#182032] rounded-md md:hidden"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? <X className="h-4 w-4 text-white" /> : <Menu className="h-4 w-4 text-white" />}
+            </button>
+            
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center">
               {["Overview", "Customers", "Products", "Settings"].map(tab => (
                 <button
                   key={tab}
@@ -122,13 +141,14 @@ const Dashboard: React.FC = () => {
               ))}
             </div>
             
-            <div className="relative">
+            {/* Search Bar - Hide on extra small screens */}
+            <div className="relative hidden sm:block">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-4 w-4 text-gray-400" />
               </div>
               <input
                 type="text"
-                className="bg-[#1e293b] focus:outline-none block w-48 pl-10 pr-3 py-1.5 border border-[#1e293b] rounded-md text-sm text-gray-100 placeholder-gray-400"
+                className="bg-[#1e293b] focus:outline-none block w-36 md:w-48 pl-10 pr-3 py-1.5 border border-[#1e293b] rounded-md text-sm text-gray-100 placeholder-gray-400"
                 placeholder="Search..."
               />
             </div>
@@ -139,9 +159,45 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
         
+        {/* Mobile Navigation Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden bg-[#182032] border-l border-r border-[#30384a] px-4 py-2">
+            <div className="space-y-2">
+              {["Overview", "Customers", "Products", "Settings"].map(tab => (
+                <button
+                  key={tab}
+                  className={`block w-full text-left px-2 py-2 rounded-md text-sm ${
+                    activeTab === tab
+                      ? "bg-[#1e293b] text-white"
+                      : "text-gray-400 hover:text-gray-300"
+                  }`}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
+                  {tab}
+                </button>
+              ))}
+              
+              {/* Mobile Search */}
+              <div className="relative mt-3 sm:hidden">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  className="bg-[#1e293b] focus:outline-none block w-full pl-10 pr-3 py-2 border border-[#1e293b] rounded-md text-sm text-gray-100 placeholder-gray-400"
+                  placeholder="Search..."
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Client Selector and Tabs */}
-        <div className="bg-[#121a2d] p-3 px-6 flex items-center justify-between border-b border-[#30384a]">
-          <div className="flex items-center space-x-4">
+        <div className="bg-[#121a2d] p-2 sm:p-3 px-3 sm:px-6 flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-[#30384a]">
+          <div className="relative mb-3 sm:mb-0" ref={clientDropdownRef}>
             <button 
               className="flex items-center space-x-2 px-2 py-1 rounded-md"
               onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
@@ -149,15 +205,13 @@ const Dashboard: React.FC = () => {
               <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
                 <span className="text-white text-xs">{selectedClient.name.charAt(0)}</span>
               </div>
-              <span className="text-gray-100">{selectedClient.name}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="6 9 12 15 18 9"></polyline>
-              </svg>
+              <span className="text-gray-100 text-sm">{selectedClient.name}</span>
+              <ChevronDown className="h-4 w-4 text-gray-400" />
             </button>
             
             {/* Dropdown menu */}
             {isClientDropdownOpen && (
-              <div className="absolute mt-32 ml-2 w-48 rounded-md shadow-lg bg-[#182032] ring-1 ring-[#30384a] z-50">
+              <div className="absolute left-0 mt-1 w-48 rounded-md shadow-lg bg-[#182032] ring-1 ring-[#30384a] z-50">
                 <div className="py-1">
                   {clients.map(client => (
                     <button
@@ -181,8 +235,8 @@ const Dashboard: React.FC = () => {
             )}
           </div>
           
-          {/* Sub Tabs */}
-          <div className="flex space-x-4">
+          {/* Sub Tabs - Desktop */}
+          <div className="hidden sm:flex space-x-4">
             {["Overview", "Analytics", "Reports", "Notifications"].map(tab => (
               <button
                 key={tab}
@@ -197,55 +251,89 @@ const Dashboard: React.FC = () => {
               </button>
             ))}
           </div>
+          
+          {/* Mobile Sub Tabs Toggle */}
+          <div className="sm:hidden">
+            <button 
+              className="flex items-center justify-between w-full px-2 py-2 bg-[#182032] rounded-md"
+              onClick={() => setIsMobileSubMenuOpen(!isMobileSubMenuOpen)}
+            >
+              <span className="text-white text-sm">{activeSubTab}</span>
+              <ChevronDown className="h-4 w-4 text-gray-400" />
+            </button>
+            
+            {isMobileSubMenuOpen && (
+              <div className="mt-1 rounded-md shadow-lg bg-[#182032] ring-1 ring-[#30384a] z-50">
+                <div className="py-1">
+                  {["Overview", "Analytics", "Reports", "Notifications"].map(tab => (
+                    <button
+                      key={tab}
+                      className={`block w-full px-4 py-2 text-left text-sm ${
+                        activeSubTab === tab
+                          ? "bg-[#1e293b] text-white"
+                          : "text-gray-300 hover:bg-[#1e293b]"
+                      }`}
+                      onClick={() => {
+                        setActiveSubTab(tab);
+                        setIsMobileSubMenuOpen(false);
+                      }}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         
         {/* Dashboard Content */}
-        <div className="bg-[#111827] rounded-b-lg p-6">
+        <div className="bg-[#111827] rounded-b-lg p-3 sm:p-4 md:p-6">
           {/* Metrics cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
             {/* Total Revenue */}
-            <div className="rounded-lg border border-[#30384a] bg-[#1a2236] p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-medium text-gray-400">Total Revenue</h3>
+            <div className="rounded-lg border border-[#30384a] bg-[#1a2236] p-3 sm:p-4 md:p-6">
+              <div className="flex justify-between items-center mb-2 sm:mb-4">
+                <h3 className="text-xs sm:text-sm font-medium text-gray-400">Total Revenue</h3>
                 <DollarSign className="h-4 w-4 text-gray-400" />
               </div>
-              <div className="text-2xl font-bold text-white">{formatCurrency(metrics.totalRevenue.value)}</div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-white">{formatCurrency(metrics.totalRevenue.value)}</div>
               <div className="mt-1 text-xs text-green-500">
                 {metrics.totalRevenue.change} from last month
               </div>
             </div>
             
             {/* Subscriptions */}
-            <div className="rounded-lg border border-[#30384a] bg-[#1a2236] p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-medium text-gray-400">Subscriptions</h3>
+            <div className="rounded-lg border border-[#30384a] bg-[#1a2236] p-3 sm:p-4 md:p-6">
+              <div className="flex justify-between items-center mb-2 sm:mb-4">
+                <h3 className="text-xs sm:text-sm font-medium text-gray-400">Subscriptions</h3>
                 <Users className="h-4 w-4 text-gray-400" />
               </div>
-              <div className="text-2xl font-bold text-white">+{metrics.subscriptions.value}</div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-white">+{metrics.subscriptions.value}</div>
               <div className="mt-1 text-xs text-green-500">
                 {metrics.subscriptions.change} from last month
               </div>
             </div>
             
             {/* Sales */}
-            <div className="rounded-lg border border-[#30384a] bg-[#1a2236] p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-medium text-gray-400">Sales</h3>
+            <div className="rounded-lg border border-[#30384a] bg-[#1a2236] p-3 sm:p-4 md:p-6">
+              <div className="flex justify-between items-center mb-2 sm:mb-4">
+                <h3 className="text-xs sm:text-sm font-medium text-gray-400">Sales</h3>
                 <ShoppingCart className="h-4 w-4 text-gray-400" />
               </div>
-              <div className="text-2xl font-bold text-white">+{metrics.sales.value}</div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-white">+{metrics.sales.value}</div>
               <div className="mt-1 text-xs text-green-500">
                 {metrics.sales.change} from last month
               </div>
             </div>
             
             {/* Active Now */}
-            <div className="rounded-lg border border-[#30384a] bg-[#1a2236] p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-medium text-gray-400">Active Now</h3>
+            <div className="rounded-lg border border-[#30384a] bg-[#1a2236] p-3 sm:p-4 md:p-6">
+              <div className="flex justify-between items-center mb-2 sm:mb-4">
+                <h3 className="text-xs sm:text-sm font-medium text-gray-400">Active Now</h3>
                 <Activity className="h-4 w-4 text-gray-400" />
               </div>
-              <div className="text-2xl font-bold text-white">+{metrics.activeNow.value}</div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-white">+{metrics.activeNow.value}</div>
               <div className="mt-1 text-xs text-green-500">
                 {metrics.activeNow.change} since last hour
               </div>
@@ -253,11 +341,11 @@ const Dashboard: React.FC = () => {
           </div>
           
           {/* Charts and recent sales section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
             {/* Chart */}
-            <div className="rounded-lg border border-[#30384a] bg-[#1a2236] p-6">
-              <h3 className="text-lg font-medium mb-8 text-white">Overview</h3>
-              <div className="h-64 flex items-end space-x-2">
+            <div className="rounded-lg border border-[#30384a] bg-[#1a2236] p-3 sm:p-4 md:p-6">
+              <h3 className="text-base sm:text-lg font-medium mb-4 md:mb-8 text-white">Overview</h3>
+              <div className="h-48 sm:h-56 md:h-64 flex items-end space-x-1 sm:space-x-2">
                 {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((month, i) => {
                   // Generate the heights for the chart bars to match the image
                   const heights = [45, 15, 15, 60, 50, 60, 40, 25, 25, 20, 15, 30];
@@ -267,7 +355,7 @@ const Dashboard: React.FC = () => {
                         className="w-full bg-green-400 dark:bg-green-500 rounded-t" 
                         style={{ height: `${heights[i]}%` }}
                       ></div>
-                      <div className="text-xs mt-2 text-gray-500">{month}</div>
+                      <div className="text-[10px] sm:text-xs mt-1 sm:mt-2 text-gray-500">{month}</div>
                     </div>
                   );
                 })}
@@ -275,24 +363,24 @@ const Dashboard: React.FC = () => {
             </div>
             
             {/* Recent sales */}
-            <div className="rounded-lg border border-[#30384a] bg-[#1a2236] p-6">
-              <h3 className="text-lg font-medium mb-4 text-white">Recent Sales</h3>
-              <p className="text-sm text-gray-400 mb-4">
+            <div className="rounded-lg border border-[#30384a] bg-[#1a2236] p-3 sm:p-4 md:p-6">
+              <h3 className="text-base sm:text-lg font-medium mb-2 sm:mb-4 text-white">Recent Sales</h3>
+              <p className="text-xs sm:text-sm text-gray-400 mb-3 sm:mb-4">
                 You made 265 sales this month.
               </p>
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {recentSales.map(sale => (
                   <div key={sale.id} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-8 h-8 rounded-full bg-[#2a3349] flex items-center justify-center">
-                        <User className="h-4 w-4 text-gray-300" />
+                    <div className="flex items-center space-x-2 sm:space-x-4">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-[#2a3349] flex items-center justify-center">
+                        <User className="h-3 w-3 sm:h-4 sm:w-4 text-gray-300" />
                       </div>
                       <div>
-                        <div className="font-medium text-white">{sale.name}</div>
-                        <div className="text-sm text-gray-400">{sale.email}</div>
+                        <div className="font-medium text-xs sm:text-sm text-white">{sale.name}</div>
+                        <div className="text-xs text-gray-400">{sale.email}</div>
                       </div>
                     </div>
-                    <div className="font-medium text-white">
+                    <div className="font-medium text-xs sm:text-sm text-white">
                       +{formatCurrency(sale.amount).replace('$', '')}
                     </div>
                   </div>
