@@ -132,7 +132,7 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center space-x-2">
             <LayoutDashboard className="h-5 w-5 text-teal-400" />
             <h1 className="text-lg sm:text-xl font-medium text-white">
-              CyberHand <span className="text-teal-400">{user?.role}</span> Dashboard
+              CyberHand Dashboard
             </h1>
           </div>
           
@@ -173,17 +173,6 @@ const Dashboard: React.FC = () => {
                 placeholder="Search..."
               />
             </div>
-            
-            {/* Theme Toggle Button */}
-            <button 
-              className={`p-1.5 ${theme === 'light' ? 'bg-gray-100' : 'bg-[#182032]'} rounded-md`}
-              onClick={toggleTheme}
-            >
-              {theme === 'light' ? 
-                <Moon className="h-4 w-4 text-gray-900" /> : 
-                <Sun className="h-4 w-4 text-white" />
-              }
-            </button>
             
             <button className={`p-1.5 ${theme === 'light' ? 'bg-gray-100' : 'bg-[#182032]'} rounded-md`}>
               <User className="h-4 w-4 text-white" />
