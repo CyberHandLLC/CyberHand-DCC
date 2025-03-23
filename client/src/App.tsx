@@ -6,7 +6,7 @@ import ErrorNotifications from './components/ErrorNotifications';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
-import Dashboard from './components/auth/Dashboard';
+import Dashboard from './features/dashboard/Dashboard';
 import Unauthorized from './components/auth/Unauthorized';
 import MainLayout from './layouts/MainLayout';
 import Home from './pages/Home';
