@@ -1,8 +1,20 @@
-# CyberHand Login Function
+# CyberHand Digital Client Console (DCC)
 
-Full-stack authentication system implementation for the CyberHand platform, featuring a React frontend and Node.js backend with complete user authentication flow.
+A comprehensive digital client management platform for CyberHand LLC, featuring role-based dashboards, client management, and a complete authentication system with a React frontend and Node.js backend.
 
 ## Features
+
+- **Role-Based Dashboards**
+  - Admin Dashboard with comprehensive management capabilities
+  - Staff Dashboard focused on task and client management
+  - Client Dashboard for service tracking and communication
+  - Observer Dashboard with limited viewing capabilities
+
+- **Client Management**
+  - Client selection across relevant dashboard sections
+  - Client-specific content management
+  - Service tracking and management
+  - Invoice management
 
 - **User Authentication**
   - Registration with email and password
@@ -22,7 +34,8 @@ Full-stack authentication system implementation for the CyberHand platform, feat
   - React with TypeScript
   - React Router for navigation
   - Context API for state management
-  - TailwindCSS for styling
+  - TailwindCSS for styling with dark/light mode
+  - Responsive design for mobile and desktop
   - Axios for API requests
 
 - **Backend**
@@ -45,8 +58,8 @@ Full-stack authentication system implementation for the CyberHand platform, feat
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/login-function.git
-   cd login-function
+   git clone https://github.com/CyberHandLLC/CyberHand-DCC.git
+   cd CyberHand-DCC
    ```
 
 2. Install dependencies:
