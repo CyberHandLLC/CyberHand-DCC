@@ -112,7 +112,7 @@ const ExpandedMarketing: React.FC = () => {
                     <span className="bg-cyberhand-green text-black rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0">5</span>
                     <div>
                       <h4 className="font-semibold">Reporting & Analysis</h4>
-                      <p>Regular reports and insights to keep you informed about your campaign's performance.</p>
+                      <p>Regular reports and insights to keep you informed about your campaign&apos;s performance.</p>
                     </div>
                   </li>
                 </ol>
@@ -139,7 +139,7 @@ const ExpandedMarketing: React.FC = () => {
                 <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
                   <h3 className="text-xl font-semibold mb-3">Technical SEO</h3>
                   <p>
-                    Optimize your website's technical elements, including site structure, load speed,
+                    Optimize your website&apos;s technical elements, including site structure, load speed,
                     mobile responsiveness, and crawlability to improve search engine performance.
                   </p>
                 </div>
@@ -155,7 +155,7 @@ const ExpandedMarketing: React.FC = () => {
                 <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
                   <h3 className="text-xl font-semibold mb-3">Off-Page SEO</h3>
                   <p>
-                    Build your website's authority through backlink acquisition, social signals,
+                    Build your website&apos;s authority through backlink acquisition, social signals,
                     and other off-site optimization strategies.
                   </p>
                 </div>
@@ -194,7 +194,7 @@ const ExpandedMarketing: React.FC = () => {
                   </div>
                   <div className="flex flex-col gap-2">
                     <h4 className="font-semibold text-cyberhand-green">Link Building</h4>
-                    <p>Acquire quality backlinks to increase your website's authority.</p>
+                    <p>Acquire quality backlinks to increase your website&apos;s authority.</p>
                   </div>
                 </div>
               </div>
@@ -220,7 +220,7 @@ const ExpandedMarketing: React.FC = () => {
                 <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
                   <h3 className="text-xl font-semibold mb-3">Blog Content</h3>
                   <p>
-                    Informative, engaging blog posts that address your audience's needs and questions
+                    Informative, engaging blog posts that address your audience&apos;s needs and questions
                     while improving your SEO performance.
                   </p>
                 </div>

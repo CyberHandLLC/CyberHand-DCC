@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import authService, { UserData, LoginCredentials, RegisterData } from '../api/services/authService';
-import { AxiosError } from 'axios';
+import { useApiError } from '../hooks/useApiError';
+import { ErrorNotification } from '../api/types/api.types';
 
 // Authentication context state type
 interface AuthContextState {
   user: UserData | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  error: string | null;
+  error: ErrorNotification | null;
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
@@ -40,69 +41,57 @@ interface AuthProviderProps {
 // Auth provider component
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<UserData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Clear authentication error
-  const clearError = () => setError(null);
+  const { error, isLoading: apiLoading, setIsLoading, clearError, handleApiCall } = useApiError();
+  const [initialLoading, setInitialLoading] = useState(true);
+  
+  // Combined loading state
+  const isLoading = initialLoading || apiLoading;
 
   // Login user
   const login = async (credentials: LoginCredentials) => {
-    try {
-      setIsLoading(true);
-      clearError();
-      
-      const response = await authService.login(credentials);
-      
-      if (response.success && response.data) {
-        setUser(response.data.user);
-      } else {
-        throw new Error('Login failed');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof AxiosError 
-        ? err.response?.data?.error || 'Authentication failed'
-        : 'Authentication failed';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setIsLoading(false);
+    const response = await handleApiCall(
+      authService.login(credentials),
+      { context: 'login', credentials: { email: credentials.email } }
+    );
+    
+    if (response?.success && response.data) {
+      setUser(response.data.user);
+    } else if (!error) {
+      // If handleApiCall didn't set an error but the response was unsuccessful
+      throw new Error('Login failed');
+    } else {
+      // If handleApiCall set an error, re-throw
+      throw new Error(error.message);
     }
   };
 
   // Register new user
   const register = async (userData: RegisterData) => {
-    try {
-      setIsLoading(true);
-      clearError();
-      
-      const response = await authService.register(userData);
-      
-      if (response.success && response.data) {
-        setUser(response.data.user);
-      } else {
-        throw new Error('Registration failed');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof AxiosError 
-        ? err.response?.data?.error || 'Registration failed'
-        : 'Registration failed';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setIsLoading(false);
+    const response = await handleApiCall(
+      authService.register(userData),
+      { context: 'register', email: userData.email }
+    );
+    
+    if (response?.success && response.data) {
+      setUser(response.data.user);
+    } else if (!error) {
+      // If handleApiCall didn't set an error but the response was unsuccessful
+      throw new Error('Registration failed');
+    } else {
+      // If handleApiCall set an error, re-throw
+      throw new Error(error.message);
     }
   };
 
   // Logout user
   const logout = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      await authService.logout();
-      setUser(null);
-    } catch (err) {
-      console.error('Logout error:', err);
-      // Force logout even if API fails
+      await handleApiCall(
+        authService.logout(),
+        { context: 'logout' }
+      );
+      // Always clear user data even if API call fails
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -112,8 +101,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Load user on initial mount
   useEffect(() => {
     const loadUser = async () => {
+      setInitialLoading(true);
       try {
-        setIsLoading(true);
         const response = await authService.getCurrentUser();
         
         if (response.success && response.data) {
@@ -124,8 +113,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } catch (err) {
         console.error('Failed to load user:', err);
         setUser(null);
+        // We don't show the error to user on initial load as it's expected that they might not be logged in
       } finally {
-        setIsLoading(false);
+        setInitialLoading(false);
       }
     };
 

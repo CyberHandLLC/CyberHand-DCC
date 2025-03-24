@@ -24,6 +24,20 @@ export const ErrorProvider: React.FC<ErrorProviderProps> = ({
 }) => {
   const [errors, setErrors] = useState<ErrorNotification[]>([]);
 
+  // Define removeError first since addError depends on it
+  const removeError = useCallback((errorId: string) => {
+    setErrors(prevErrors => 
+      prevErrors.map(error => 
+        error.id === errorId ? { ...error, dismissed: true } : error
+      )
+    );
+    
+    // Actually remove from state after animation (500ms)
+    setTimeout(() => {
+      setErrors(prevErrors => prevErrors.filter(error => error.id !== errorId));
+    }, 500);
+  }, []);
+
   const addError = useCallback((error: ErrorNotification) => {
     setErrors(prevErrors => {
       // Add new error and limit the total number
@@ -37,20 +51,7 @@ export const ErrorProvider: React.FC<ErrorProviderProps> = ({
         removeError(error.id);
       }, 5000);
     }
-  }, [maxErrors]);
-
-  const removeError = useCallback((errorId: string) => {
-    setErrors(prevErrors => 
-      prevErrors.map(error => 
-        error.id === errorId ? { ...error, dismissed: true } : error
-      )
-    );
-    
-    // Actually remove from state after animation (500ms)
-    setTimeout(() => {
-      setErrors(prevErrors => prevErrors.filter(error => error.id !== errorId));
-    }, 500);
-  }, []);
+  }, [maxErrors, removeError]);
 
   const clearErrors = useCallback(() => {
     setErrors([]);

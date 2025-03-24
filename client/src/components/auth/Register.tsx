@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import ErrorDisplay from '../../components/ui/ErrorDisplay';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -89,10 +90,19 @@ const Register: React.FC = () => {
       <h1 className="text-2xl font-bold mb-6 text-center">Create an Account</h1>
       
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
-        {/* Error display */}
-        {(error || formError) && (
+        {/* API Error display */}
+        {error && (
+          <ErrorDisplay 
+            error={error} 
+            onDismiss={clearError}
+            className="mb-4"
+          />
+        )}
+        
+        {/* Form validation error */}
+        {formError && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-            {formError || error}
+            {formError}
           </div>
         )}
         
@@ -216,7 +226,7 @@ const Register: React.FC = () => {
             }`}
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'Creating Account...' : 'Register'}
+            {isSubmitting ? 'Creating account...' : 'Register'}
           </button>
         </div>
         
@@ -227,7 +237,7 @@ const Register: React.FC = () => {
             to="/login" 
             className="text-blue-600 hover:text-blue-800"
           >
-            Log in here
+            Sign in
           </Link>
         </div>
       </form>

@@ -1,17 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Calendar, BarChart, FileText, AlertTriangle, Download } from 'lucide-react';
+import { ArrowLeft, Check, Calendar, FileText, AlertTriangle, Download, Loader } from 'lucide-react';
+import { useAuth } from '../../../../context/AuthContext';
+import useApiError from '../../../../hooks/useApiError';
+import ErrorDisplay from '../../../../components/ui/ErrorDisplay';
+import serviceAPI from '../../../../api/services/serviceAPI';
+import { ClientService, BillingPeriod } from '../../../../types/service';
 
-// Mock service data
-const services = {
+// Extended ClientService type to include UI-specific fields for the view
+interface ExtendedClientService extends ClientService {
+  usageMetrics?: Array<{
+    name: string;
+    value: string;
+    total: string;
+    percentage: number;
+  }>;
+  activityHistory?: Array<{
+    date: string;
+    activity: string;
+    type: string;
+  }>;
+}
+
+// Mock service data for fallback
+const mockServices: Record<string, ExtendedClientService> = {
   '1': { 
     id: 1, 
     name: "Website Maintenance", 
     description: "Monthly maintenance of your website including security updates, content updates, and performance optimization.",
-    status: "active", 
-    nextBilling: "2025-04-15", 
+    status: "active" as const,
+    nextBillingDate: "2025-04-15", 
     startDate: "2024-10-15",
-    amount: 299,
+    price: 299,
+    category: "maintenance",
+    billingPeriod: "monthly" as BillingPeriod,
+    isRecurring: true,
     features: [
       "Weekly backups",
       "Security monitoring",
@@ -36,10 +59,13 @@ const services = {
     id: 2, 
     name: "Social Media Management", 
     description: "Managing your social media accounts with regular posts, engagement, and analytics reports.",
-    status: "active", 
-    nextBilling: "2025-04-10", 
+    status: "active" as const, 
+    nextBillingDate: "2025-04-10", 
     startDate: "2024-11-10",
-    amount: 199,
+    price: 199,
+    category: "marketing",
+    billingPeriod: "monthly" as BillingPeriod,
+    isRecurring: true,
     features: [
       "3 posts per week",
       "Community engagement",
@@ -69,10 +95,57 @@ interface ServiceDetailViewProps {
 const ServiceDetailView: React.FC<ServiceDetailViewProps> = ({ theme = 'dark' }) => {
   const { serviceId } = useParams<{ serviceId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'usage' | 'history'>('overview');
+  const [service, setService] = useState<ExtendedClientService | null>(null);
+  const { error, isLoading, handleApiCall, clearError } = useApiError();
   
-  // Get service details
-  const service = serviceId ? services[serviceId as keyof typeof services] : null;
+  // Fetch service details when component mounts
+  useEffect(() => {
+    if (!serviceId || !user?.id) return;
+    
+    const fetchServiceDetails = async () => {
+      const response = await handleApiCall(
+        serviceAPI.getServiceById(parseInt(serviceId)),
+        { context: `Fetching service details for ${serviceId}` }
+      );
+      
+      if (response?.data) {
+        // Need to type cast and ensure required ClientService properties are present
+        const serviceData = response.data as any;
+        
+        // Create an ExtendedClientService by ensuring required properties exist
+        const extendedService: ExtendedClientService = {
+          ...serviceData,
+          // Ensure required ClientService properties
+          isRecurring: serviceData.isRecurring ?? serviceData.recurring ?? true,
+          billingPeriod: serviceData.billingPeriod || 'monthly',
+          category: serviceData.category || 'general',
+          // Map any service.amount to price if needed
+          price: serviceData.price || serviceData.amount || 0
+        };
+        
+        setService(extendedService);
+      } else {
+        // Fall back to mock data if API fails
+        setService(mockServices[serviceId as keyof typeof mockServices] || null);
+      }
+    };
+    
+    fetchServiceDetails();
+  }, [serviceId, user?.id, handleApiCall]);
+  
+  // If loading, show loading state
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Loader className="w-10 h-10 text-primary animate-spin mb-4" />
+        <p className={`text-lg ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+          Loading service details...
+        </p>
+      </div>
+    );
+  }
   
   // If service not found
   if (!service) {
@@ -96,7 +169,8 @@ const ServiceDetailView: React.FC<ServiceDetailViewProps> = ({ theme = 'dark' })
   }
   
   // Format date for display
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A';
     const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString('en-US', options);
   };
@@ -173,6 +247,15 @@ const ServiceDetailView: React.FC<ServiceDetailViewProps> = ({ theme = 'dark' })
         </Link>
       </div>
       
+      {/* Error display */}
+      {error && (
+        <ErrorDisplay 
+          error={error} 
+          onDismiss={clearError}
+          className="mb-4"
+        />
+      )}
+      
       {/* Service Header */}
       <div className={`${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-[#162238] border border-[#2a3448]'} rounded-lg p-6`}>
         <div className="flex justify-between items-start">
@@ -196,173 +279,169 @@ const ServiceDetailView: React.FC<ServiceDetailViewProps> = ({ theme = 'dark' })
               Monthly fee
             </p>
             <p className={`mt-1 text-xl font-medium ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-              {formatCurrency(service.amount)}
+              {formatCurrency(service.price)}
             </p>
           </div>
           <div>
             <p className={`text-sm font-medium ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-              Next billing
+              Next billing date
             </p>
-            <p className={`mt-1 text-xl font-medium ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-              {formatDate(service.nextBilling)}
+            <p className={`mt-1 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+              {formatDate(service.nextBillingDate)}
             </p>
           </div>
           <div>
             <p className={`text-sm font-medium ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
               Service started
             </p>
-            <p className={`mt-1 text-xl font-medium ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+            <p className={`mt-1 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
               {formatDate(service.startDate)}
             </p>
           </div>
         </div>
       </div>
-      
-      {/* Tabs */}
-      <div className={`border-b ${theme === 'light' ? 'border-gray-200' : 'border-[#2a3448]'}`}>
-        <nav className="flex space-x-8">
-          <button
-            className={`py-4 px-1 border-b-2 text-sm font-medium ${
-              activeTab === 'overview'
-                ? `${theme === 'light' ? 'border-teal-500 text-teal-600' : 'border-teal-400 text-teal-400'}`
-                : `${theme === 'light' ? 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'}`
-            }`}
-            onClick={() => setActiveTab('overview')}
-          >
-            Overview
-          </button>
-          <button
-            className={`py-4 px-1 border-b-2 text-sm font-medium ${
-              activeTab === 'usage'
-                ? `${theme === 'light' ? 'border-teal-500 text-teal-600' : 'border-teal-400 text-teal-400'}`
-                : `${theme === 'light' ? 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'}`
-            }`}
-            onClick={() => setActiveTab('usage')}
-          >
-            Usage & Metrics
-          </button>
-          <button
-            className={`py-4 px-1 border-b-2 text-sm font-medium ${
-              activeTab === 'history'
-                ? `${theme === 'light' ? 'border-teal-500 text-teal-600' : 'border-teal-400 text-teal-400'}`
-                : `${theme === 'light' ? 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'}`
-            }`}
-            onClick={() => setActiveTab('history')}
-          >
-            Activity History
-          </button>
-        </nav>
+
+      {/* Tabs navigation */}
+      <div className={`flex border-b ${theme === 'light' ? 'border-gray-200' : 'border-[#2a3448]'}`}>
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`px-4 py-2 font-medium text-sm ${
+            activeTab === 'overview'
+              ? `${theme === 'light' ? 'border-b-2 border-blue-500 text-blue-600' : 'border-b-2 border-blue-500 text-blue-400'}`
+              : `${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-400 hover:text-white'}`
+          }`}
+        >
+          Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('usage')}
+          className={`px-4 py-2 font-medium text-sm ${
+            activeTab === 'usage'
+              ? `${theme === 'light' ? 'border-b-2 border-blue-500 text-blue-600' : 'border-b-2 border-blue-500 text-blue-400'}`
+              : `${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-400 hover:text-white'}`
+          }`}
+        >
+          Usage
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`px-4 py-2 font-medium text-sm ${
+            activeTab === 'history'
+              ? `${theme === 'light' ? 'border-b-2 border-blue-500 text-blue-600' : 'border-b-2 border-blue-500 text-blue-400'}`
+              : `${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-400 hover:text-white'}`
+          }`}
+        >
+          History
+        </button>
       </div>
       
-      {/* Tab Content */}
+      {/* Tab content */}
       <div>
+        {/* Overview tab */}
         {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* Features */}
-            <div className={`${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-[#162238] border border-[#2a3448]'} rounded-lg p-6`}>
-              <h3 className={`text-lg font-medium mb-4 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                Service Features
-              </h3>
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {service.features.map((feature, index) => (
-                  <li key={index} className="flex items-start">
-                    <div className={`p-1 rounded-full mr-3 ${theme === 'light' ? 'bg-green-100' : 'bg-green-900 bg-opacity-30'}`}>
-                      <Check className={`h-4 w-4 ${theme === 'light' ? 'text-green-700' : 'text-green-400'}`} />
-                    </div>
-                    <span className={`${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
-                      {feature}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className={`${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-[#162238] border border-[#2a3448]'} rounded-lg p-6`}>
+            <h3 className={`text-lg font-medium mb-4 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+              Service Features
+            </h3>
             
-            {/* Actions */}
-            <div className={`${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-[#162238] border border-[#2a3448]'} rounded-lg p-6`}>
+            <ul className="space-y-2">
+              {service.features?.map((feature, index) => (
+                <li key={index} className="flex items-start">
+                  <Check className={`h-5 w-5 mr-2 flex-shrink-0 ${theme === 'light' ? 'text-green-500' : 'text-green-400'}`} />
+                  <span className={`${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                    {feature}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            
+            <div className="mt-6">
               <h3 className={`text-lg font-medium mb-4 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                Service Actions
+                Service Details
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button 
-                  className={`flex items-center justify-center p-3 rounded-lg text-sm font-medium ${theme === 'light' ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-[#1e2a45] text-gray-300 hover:bg-[#283856]'}`}
-                >
-                  <Calendar className="h-5 w-5 mr-2" />
-                  Request Content Update
-                </button>
-                <button 
-                  className={`flex items-center justify-center p-3 rounded-lg text-sm font-medium ${theme === 'light' ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-[#1e2a45] text-gray-300 hover:bg-[#283856]'}`}
-                >
-                  <BarChart className="h-5 w-5 mr-2" />
-                  View Latest Report
-                </button>
-                <button 
-                  className={`flex items-center justify-center p-3 rounded-lg text-sm font-medium ${theme === 'light' ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-[#1e2a45] text-gray-300 hover:bg-[#283856]'}`}
-                >
-                  <AlertTriangle className="h-5 w-5 mr-2" />
-                  Report an Issue
-                </button>
+              
+              <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                <div>
+                  <span className={`block text-sm ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Billing period
+                  </span>
+                  <span>
+                    {service.billingPeriod.charAt(0).toUpperCase() + service.billingPeriod.slice(1)}
+                  </span>
+                </div>
+                <div>
+                  <span className={`block text-sm ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Recurring
+                  </span>
+                  <span>
+                    {service.isRecurring ? 'Yes' : 'No'}
+                  </span>
+                </div>
+                <div>
+                  <span className={`block text-sm ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Category
+                  </span>
+                  <span>
+                    {service.category.charAt(0).toUpperCase() + service.category.slice(1)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         )}
         
+        {/* Usage tab */}
         {activeTab === 'usage' && (
           <div className={`${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-[#162238] border border-[#2a3448]'} rounded-lg p-6`}>
-            <h3 className={`text-lg font-medium mb-6 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-              Current Month Usage
+            <h3 className={`text-lg font-medium mb-4 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+              Usage Metrics
             </h3>
             
-            <div className="space-y-6">
-              {service.usageMetrics.map((metric, index) => (
-                <div key={index}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className={`text-sm font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
-                      {metric.name}
-                    </span>
-                    <span className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                      {metric.value} / {metric.total}
-                    </span>
+            {service.usageMetrics ? (
+              <div className="space-y-6">
+                {service.usageMetrics.map((metric, index) => (
+                  <div key={index}>
+                    <div className="flex justify-between mb-1">
+                      <span className={`${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                        {metric.name}
+                      </span>
+                      <span className={`${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                        {metric.value} / {metric.total}
+                      </span>
+                    </div>
+                    <div className={`w-full bg-gray-200 rounded-full h-2.5 ${theme === 'light' ? 'bg-gray-200' : 'bg-gray-700'}`}>
+                      <div 
+                        className="bg-teal-600 h-2.5 rounded-full" 
+                        style={{ width: `${metric.percentage}%` }}
+                      ></div>
+                    </div>
                   </div>
-                  <div className={`w-full h-2 ${theme === 'light' ? 'bg-gray-200' : 'bg-[#1e2a45]'} rounded-full`}>
-                    <div 
-                      className="h-2 rounded-full bg-teal-500" 
-                      style={{ width: `${metric.percentage}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="mt-8">
-              <h4 className={`text-base font-medium mb-3 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                Need more resources?
-              </h4>
-              <p className={`mb-4 ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>
-                If you're consistently using all your allocated resources, consider upgrading your service plan.
+                ))}
+              </div>
+            ) : (
+              <p className={`${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                No usage metrics available for this service.
               </p>
-              <button 
-                className="px-4 py-2 rounded-md bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium"
-              >
-                Discuss upgrade options
-              </button>
-            </div>
+            )}
           </div>
         )}
         
+        {/* History tab */}
         {activeTab === 'history' && (
           <div className={`${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-[#162238] border border-[#2a3448]'} rounded-lg p-6`}>
-            <h3 className={`text-lg font-medium mb-6 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-              Recent Activity
+            <h3 className={`text-lg font-medium mb-4 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+              Activity History
             </h3>
             
-            <div className="relative">
-              <div className="border-l-2 border-gray-600 ml-3 pt-2 pb-6">
+            {service.activityHistory ? (
+              <div className="space-y-4">
                 {service.activityHistory.map((activity, index) => (
-                  <div key={index} className="relative mb-6 ml-10">
-                    <div className="absolute -left-14 mt-1.5">
-                      <div className={`p-1.5 rounded-full ${getActivityColor(activity.type)}`}>
-                        {getActivityIcon(activity.type)}
-                      </div>
+                  <div 
+                    key={index} 
+                    className={`flex items-start p-3 rounded-md ${theme === 'light' ? 'bg-gray-50' : 'bg-[#1a2944]'}`}
+                  >
+                    <div className={`p-2 rounded-full mr-3 ${getActivityColor(activity.type)}`}>
+                      {getActivityIcon(activity.type)}
                     </div>
                     <div>
                       <p className={`${theme === 'light' ? 'text-gray-900' : 'text-white'} font-medium`}>
@@ -375,18 +454,15 @@ const ServiceDetailView: React.FC<ServiceDetailViewProps> = ({ theme = 'dark' })
                   </div>
                 ))}
               </div>
-            </div>
-            
-            <div className="mt-4 text-center">
-              <button 
-                className={`text-sm ${theme === 'light' ? 'text-blue-600 hover:text-blue-700' : 'text-blue-400 hover:text-blue-300'}`}
-              >
-                View full activity history
-              </button>
-            </div>
+            ) : (
+              <p className={`${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                No activity history available for this service.
+              </p>
+            )}
           </div>
         )}
       </div>
+
     </div>
   );
 };

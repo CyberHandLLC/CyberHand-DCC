@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import ErrorDisplay from '../../components/ui/ErrorDisplay';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -61,10 +62,19 @@ const Login: React.FC = () => {
       <h1 className="text-2xl font-bold mb-6 text-center">Login to CyberHand</h1>
       
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
-        {/* Error display */}
-        {(error || formError) && (
+        {/* API Error display */}
+        {error && (
+          <ErrorDisplay 
+            error={error} 
+            onDismiss={clearError}
+            className="mb-4"
+          />
+        )}
+        
+        {/* Form validation error */}
+        {formError && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-            {formError || error}
+            {formError}
           </div>
         )}
         
@@ -132,7 +142,7 @@ const Login: React.FC = () => {
         
         {/* Registration link */}
         <div className="text-center text-gray-600">
-          Don't have an account?{' '}
+          Don&apos;t have an account?{' '}
           <Link 
             to="/register" 
             className="text-blue-600 hover:text-blue-800"

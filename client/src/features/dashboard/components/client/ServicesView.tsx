@@ -1,104 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
-import { ArrowUpRight, Check, AlertTriangle } from 'lucide-react';
+import { ArrowUpRight, Check, AlertTriangle, Loader } from 'lucide-react';
+import useApiError from '../../../../hooks/useApiError';
+import ErrorDisplay from '../../../../components/ui/ErrorDisplay';
+import serviceAPI from '../../../../api/services/serviceAPI';
+import { ClientService } from '../../../../types/service';
 
 interface ServicesViewProps {
   theme?: 'light' | 'dark';
 }
 
-// Mock services data
-const services = [
-  { 
-    id: 1, 
-    name: "Website Maintenance", 
-    description: "Monthly maintenance of your website including security updates, content updates, and performance optimization.",
-    status: "active", 
-    nextBilling: "2025-04-15", 
-    amount: 299,
-    features: [
-      "Weekly backups",
-      "Security monitoring",
-      "Content updates (up to 4 hrs/month)",
-      "Performance optimization",
-      "Monthly reports"
-    ]
-  },
-  { 
-    id: 2, 
-    name: "Social Media Management", 
-    description: "Managing your social media accounts with regular posts, engagement, and analytics reports.",
-    status: "active", 
-    nextBilling: "2025-04-10", 
-    amount: 199,
-    features: [
-      "3 posts per week",
-      "Community engagement",
-      "Performance analytics",
-      "Content calendar",
-      "Monthly strategy updates"
-    ]
-  },
-  { 
-    id: 3, 
-    name: "Email Marketing", 
-    description: "Email campaign management including design, sending, and analytics reporting.",
-    status: "pending", 
-    nextBilling: "2025-04-20", 
-    amount: 99,
-    features: [
-      "1 campaign per month",
-      "Email template design",
-      "List management",
-      "A/B testing",
-      "Performance analytics"
-    ]
-  },
-  { 
-    id: 4, 
-    name: "SEO Services", 
-    description: "Search engine optimization to improve your website's visibility in search results.",
-    status: "inactive", 
-    nextBilling: null, 
-    amount: 399,
-    features: [
-      "Keyword research",
-      "On-page optimization",
-      "Content strategy",
-      "Backlink building",
-      "Monthly reporting"
-    ]
-  }
-];
-
-// Available add-ons
-const addOns = [
-  {
-    id: 1,
-    name: "Advanced Analytics",
-    description: "Get deeper insights with advanced analytics and custom reports.",
-    price: 49,
-    compatible: [1, 2, 3]
-  },
-  {
-    id: 2,
-    name: "Priority Support",
-    description: "Get priority support with 4-hour response time guarantee.",
-    price: 39,
-    compatible: [1, 2, 3, 4]
-  },
-  {
-    id: 3,
-    name: "Additional Content Updates",
-    description: "Additional 4 hours of content updates per month.",
-    price: 99,
-    compatible: [1]
-  }
-];
-
 const ServicesView: React.FC<ServicesViewProps> = ({ theme = 'dark' }) => {
   const { user } = useAuth();
   const [filter, setFilter] = useState<'all' | 'active' | 'pending' | 'inactive'>('all');
+  const [services, setServices] = useState<ClientService[]>([]);
+  const { error, isLoading, handleApiCall, clearError } = useApiError();
+  
+  // Fetch client services when component mounts
+  useEffect(() => {
+    fetchClientServices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  // Fetch services for the current client
+  const fetchClientServices = async () => {
+    if (!user?.id) return;
+
+    const response = await handleApiCall(
+      serviceAPI.getClientServices(user.id),
+      { context: 'Fetching client services' }
+    );
+    
+    if (response?.data) {
+      setServices(response.data);
+    }
+  };
   
   // Format date for display
   const formatDate = (dateString: string | null) => {
@@ -187,8 +124,25 @@ const ServicesView: React.FC<ServicesViewProps> = ({ theme = 'dark' }) => {
         </div>
       </div>
       
+      {/* Error display */}
+      {error && (
+        <ErrorDisplay 
+          error={error} 
+          onDismiss={clearError}
+          className="mb-4"
+        />
+      )}
+      
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-2">Loading services...</span>
+        </div>
+      )}
+      
       {/* Services Grid */}
-      {filteredServices.length > 0 ? (
+      {!isLoading && filteredServices.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredServices.map(service => (
             <div 
@@ -205,136 +159,91 @@ const ServicesView: React.FC<ServicesViewProps> = ({ theme = 'dark' }) => {
                       {service.description}
                     </p>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(service.status)}`}>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(service.status)}`}>
                     {service.status.charAt(0).toUpperCase() + service.status.slice(1)}
                   </span>
                 </div>
                 
                 {/* Service details */}
-                <div className="mt-4 grid grid-cols-2 gap-4">
+                <div className={`mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>
                   <div>
-                    <p className={`text-xs font-medium ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                      Monthly fee
-                    </p>
-                    <p className={`mt-1 font-medium ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                      {formatCurrency(service.amount)}
-                    </p>
+                    <span className={`block ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                      Next Billing
+                    </span>
+                    <span className="font-medium">
+                      {formatDate(service.nextBillingDate || null)}
+                    </span>
                   </div>
                   <div>
-                    <p className={`text-xs font-medium ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                      Next billing
-                    </p>
-                    <p className={`mt-1 font-medium ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                      {formatDate(service.nextBilling)}
-                    </p>
+                    <span className={`block ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                      Monthly Price
+                    </span>
+                    <span className="font-medium">
+                      {formatCurrency(service.price)}
+                    </span>
                   </div>
                 </div>
               </div>
               
               {/* Service features */}
-              <div className="p-5">
-                <h4 className={`text-sm font-medium mb-3 ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
-                  Included features:
-                </h4>
-                <ul className="space-y-2">
-                  {service.features.map((feature, index) => (
-                    <li key={index} className="flex items-start">
-                      <Check className={`h-4 w-4 mt-0.5 mr-2 ${theme === 'light' ? 'text-green-600' : 'text-green-400'}`} />
-                      <span className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>
-                        {feature}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {service.features && service.features.length > 0 && (
+                <div className={`p-5 ${theme === 'light' ? 'border-b border-gray-200' : 'border-b border-[#2a3448]'}`}>
+                  <h4 className={`text-sm font-medium mb-3 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                    Included Features
+                  </h4>
+                  <ul className="space-y-2">
+                    {service.features.map((feature: string, index: number) => (
+                      <li key={index} className="flex items-start">
+                        <Check size={16} className={`mt-0.5 mr-2 flex-shrink-0 ${theme === 'light' ? 'text-green-500' : 'text-green-400'}`} />
+                        <span className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>
+                          {feature}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               
               {/* Actions */}
-              <div className={`p-4 ${theme === 'light' ? 'bg-gray-50 border-t border-gray-200' : 'bg-[#1a2537] border-t border-[#2a3448]'}`}>
-                <div className="flex items-center justify-between">
-                  <Link 
-                    to={`/dashboard/client/services/${service.id}`} 
-                    className={`text-sm font-medium ${theme === 'light' ? 'text-blue-600 hover:text-blue-700' : 'text-blue-400 hover:text-blue-300'}`}
-                  >
-                    View details
-                  </Link>
-                  
+              <div className="p-5 flex justify-between items-center">
+                <div className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
                   {service.status === 'active' && (
-                    <button 
-                      className={`text-sm font-medium px-3 py-1.5 rounded-md ${theme === 'light' ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' : 'bg-[#182032] border border-[#2a3448] text-gray-300 hover:bg-[#1e2a45]'}`}
-                    >
-                      Manage service
-                    </button>
-                  )}
-                  
-                  {service.status === 'inactive' && (
-                    <button 
-                      className="text-sm font-medium px-3 py-1.5 rounded-md bg-teal-500 hover:bg-teal-600 text-white"
-                    >
-                      Activate now
-                    </button>
-                  )}
-                  
-                  {service.status === 'pending' && (
-                    <div className="flex items-center">
-                      <AlertTriangle className="h-4 w-4 text-yellow-400 mr-1.5" />
-                      <span className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>
-                        Awaiting approval
-                      </span>
-                    </div>
+                    <span className="flex items-center">
+                      <AlertTriangle size={14} className="mr-1 text-yellow-500" />
+                      Cancellation requires 30-day notice
+                    </span>
                   )}
                 </div>
+                <Link 
+                  to={`/dashboard/service/${service.id}`}
+                  className={`inline-flex items-center text-sm font-medium ${theme === 'light' ? 'text-teal-600 hover:text-teal-800' : 'text-teal-400 hover:text-teal-300'}`}
+                >
+                  View Details
+                  <ArrowUpRight size={16} className="ml-1" />
+                </Link>
               </div>
             </div>
           ))}
         </div>
-      ) : (
-        <div className={`p-8 text-center ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-[#162238] border border-[#2a3448]'} rounded-lg`}>
-          <p className={`text-lg font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
-            No {filter !== 'all' ? filter : ''} services found
-          </p>
-          <p className={`mt-2 text-sm ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-            {filter !== 'all' 
-              ? `You don't have any ${filter} services. Try changing the filter or contact support.`
-              : `You don't have any services yet. Please contact your account manager to get started.`
-            }
-          </p>
+      ) : !isLoading && (
+        <div className={`text-center py-8 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+          {filter !== 'all' 
+            ? `No ${filter} services found.` 
+            : 'No services found. Contact your account manager to add services.'}
         </div>
       )}
       
-      {/* Add-ons section */}
-      <div className="mt-10">
-        <h2 className={`text-xl font-medium mb-4 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-          Recommended Add-ons
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {addOns.map(addon => (
-            <div 
-              key={addon.id} 
-              className={`${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-[#162238] border border-[#2a3448]'} rounded-lg overflow-hidden`}
-            >
-              <div className="p-5">
-                <h3 className={`text-lg font-medium ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                  {addon.name}
-                </h3>
-                <p className={`mt-1 text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>
-                  {addon.description}
-                </p>
-                <p className={`mt-3 font-medium ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                  {formatCurrency(addon.price)}/month
-                </p>
-                
-                <button 
-                  className="mt-4 w-full flex items-center justify-center text-sm font-medium px-4 py-2 rounded-md bg-teal-500 hover:bg-teal-600 text-white"
-                >
-                  Add to services
-                  <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-          ))}
+      {/* Retry button if there was an error */}
+      {error && (
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={fetchClientServices}
+            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+          >
+            Retry
+          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 };

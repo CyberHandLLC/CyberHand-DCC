@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, Phone, Mail, Calendar, MessageSquare, Check, X, Clock, User, ChevronDown, MoreHorizontal } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useApiError } from '../../../../../hooks/useApiError';
+import ErrorDisplay from '../../../../../components/ui/ErrorDisplay';
+import leadAPI, { Lead } from '../../../../../api/services/leadAPI';
+import { ApiResponse } from '../../../../../api/types/api.types';
 
-// Mock lead data
-const mockLeads = [
+// Mock lead data for fallback
+const mockLeads: Lead[] = [
   {
     id: 1,
     name: 'Alex Thompson',
@@ -86,18 +90,118 @@ const LeadManagement: React.FC<LeadManagementProps> = ({ theme }) => {
   const [interestFilter, setInterestFilter] = useState('all');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [leadDetailId, setLeadDetailId] = useState<number | null>(null);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const { error, isLoading, handleApiCall, clearError } = useApiError();
 
-  // Filter leads based on search, status, and interest level
-  const filteredLeads = mockLeads.filter(lead => {
-    const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         lead.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         lead.email.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
-    const matchesInterest = interestFilter === 'all' || lead.interestLevel === interestFilter;
-    
-    return matchesSearch && matchesStatus && matchesInterest;
+  // Fetch leads on component mount
+  useEffect(() => {
+    const fetchLeads = async () => {
+      const response = await handleApiCall(
+        leadAPI.getAllLeads(), 
+        { context: "fetching leads" }
+      );
+      
+      if (response?.data) {
+        setLeads(response.data);
+      } else {
+        // Fall back to mock data if API fails
+        setLeads(mockLeads);
+      }
+    };
+
+    fetchLeads();
+  }, [handleApiCall]);
+
+  // Refetch leads when filters change
+  useEffect(() => {
+    if (statusFilter !== 'all' || interestFilter !== 'all') {
+      const fetchFilteredLeads = async () => {
+        let apiPromise: Promise<ApiResponse<Lead[]>>;
+        
+        if (statusFilter !== 'all' && interestFilter === 'all') {
+          apiPromise = leadAPI.getLeadsByStatus(statusFilter);
+        } else if (interestFilter !== 'all' && statusFilter === 'all') {
+          apiPromise = leadAPI.getLeadsByInterestLevel(interestFilter);
+        } else {
+          apiPromise = leadAPI.getAllLeads();
+        }
+        
+        const response = await handleApiCall(
+          apiPromise,
+          { context: "fetching filtered leads" }
+        );
+        
+        if (response?.data) {
+          setLeads(response.data);
+        }
+      };
+      
+      fetchFilteredLeads();
+    }
+  }, [handleApiCall, statusFilter, interestFilter]);
+
+  // Filter leads based on search
+  const filteredLeads = leads.filter(lead => {
+    return lead.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+           lead.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           lead.email.toLowerCase().includes(searchQuery.toLowerCase());
   });
+
+  // Update lead status
+  const handleStatusChange = async (leadId: number, newStatus: string) => {
+    const response = await handleApiCall(
+      leadAPI.updateLeadStatus(leadId, newStatus),
+      { context: `updating lead status to ${newStatus}` }
+    );
+    
+    if (response?.data) {
+      // Use a type-safe approach to update the lead in state
+      setLeads(prevLeads => 
+        prevLeads.map(lead => 
+          lead.id === leadId ? response.data as Lead : lead
+        )
+      );
+    }
+  };
+
+  // Schedule a follow-up
+  const handleScheduleFollowUp = async (leadId: number, date: string) => {
+    const response = await handleApiCall(
+      leadAPI.scheduleFollowUp(leadId, date),
+      { context: "scheduling follow-up" }
+    );
+    
+    if (response?.data) {
+      setLeads(prevLeads => 
+        prevLeads.map(lead => 
+          lead.id === leadId ? response.data as Lead : lead
+        )
+      );
+    }
+  };
+
+  // Add note to lead
+  const handleAddNote = async (leadId: number, content: string) => {
+    // First add the note
+    await handleApiCall(
+      leadAPI.addLeadNote(leadId, content),
+      { context: "adding note to lead" }
+    );
+    
+    // Then fetch the updated lead details
+    const response = await handleApiCall(
+      leadAPI.getLeadById(leadId),
+      { context: "refreshing lead after adding note" }
+    );
+    
+    if (response?.data) {
+      setLeads(prevLeads => 
+        prevLeads.map(lead => 
+          lead.id === leadId ? response.data as Lead : lead
+        )
+      );
+    }
+  };
 
   // Get appropriate CSS class for lead status
   const getStatusClass = (status: string) => {
@@ -251,9 +355,30 @@ const LeadManagement: React.FC<LeadManagementProps> = ({ theme }) => {
           </div>
         </div>
       </div>
-      
-      <div className={`rounded-lg overflow-hidden border ${theme === 'light' ? 'border-gray-200' : 'border-[#2a3448]'}`}>
-        <div className="overflow-x-auto">
+
+      {/* Error display */}
+      {error && <ErrorDisplay error={error} onDismiss={clearError} className="mb-4" />}
+
+      {/* Loading state */}
+      {isLoading && (
+        <div className={`flex items-center justify-center py-8 ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+            <p>Loading leads...</p>
+          </div>
+        </div>
+      )}
+
+      {/* No leads found */}
+      {!isLoading && filteredLeads.length === 0 && (
+        <div className={`text-center py-8 ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>
+          <p>No leads found matching your filters.</p>
+        </div>
+      )}
+
+      {/* Leads table */}
+      {!isLoading && filteredLeads.length > 0 && (
+        <div className={`overflow-x-auto rounded-lg ${theme === 'light' ? 'bg-white' : 'bg-[#182032]'} border ${theme === 'light' ? 'border-gray-200' : 'border-[#2a3448]'}`}>
           <table className="w-full">
             <thead className={`${theme === 'light' ? 'bg-gray-50' : 'bg-[#12192e]'}`}>
               <tr>
@@ -434,17 +559,11 @@ const LeadManagement: React.FC<LeadManagementProps> = ({ theme }) => {
             </tbody>
           </table>
         </div>
-        
-        {filteredLeads.length === 0 && (
-          <div className={`py-10 text-center ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-            No leads found. Try adjusting your search or filters.
-          </div>
-        )}
-      </div>
+      )}
       
       <div className="mt-5 flex justify-between items-center">
         <div className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-          Showing {filteredLeads.length} of {mockLeads.length} leads
+          Showing {filteredLeads.length} of {leads.length} leads
         </div>
         
         <div className="flex">

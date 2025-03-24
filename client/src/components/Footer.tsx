@@ -28,19 +28,19 @@ const Footer: React.FC<FooterProps> = ({ theme = 'dark' }) => {
             <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
             <ul className={`space-y-2 ${isDark ? 'text-white/70' : 'text-cyberhand-dark/70'}`}>
               <li>
-                <a href="#" className="hover:text-cyberhand-green transition-colors">Services</a>
+                <a href="/services" className="hover:text-cyberhand-green transition-colors">Services</a>
               </li>
               <li>
-                <a href="#" className="hover:text-cyberhand-green transition-colors">Our Work</a>
+                <a href="/portfolio" className="hover:text-cyberhand-green transition-colors">Our Work</a>
               </li>
               <li>
-                <a href="#" className="hover:text-cyberhand-green transition-colors">Packages</a>
+                <a href="/packages" className="hover:text-cyberhand-green transition-colors">Packages</a>
               </li>
               <li>
-                <a href="#" className="hover:text-cyberhand-green transition-colors">Contact</a>
+                <a href="/contact" className="hover:text-cyberhand-green transition-colors">Contact</a>
               </li>
               <li>
-                <a href="#" className="hover:text-cyberhand-green transition-colors">Privacy Policy</a>
+                <a href="/privacy-policy" className="hover:text-cyberhand-green transition-colors">Privacy Policy</a>
               </li>
             </ul>
           </div>
@@ -56,19 +56,19 @@ const Footer: React.FC<FooterProps> = ({ theme = 'dark' }) => {
             
             {/* Social media icons */}
             <div className="flex space-x-4 mt-4">
-              <a href="#" className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-cyberhand-dark/10'}`}>
+              <a href="https://www.facebook.com/cyberhand" className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-cyberhand-dark/10'}`}>
                 <FacebookIcon className="h-5 w-5" />
               </a>
-              <a href="#" className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-cyberhand-dark/10'}`}>
+              <a href="https://www.twitter.com/cyberhand" className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-cyberhand-dark/10'}`}>
                 <TwitterIcon className="h-5 w-5" />
               </a>
-              <a href="#" className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-cyberhand-dark/10'}`}>
+              <a href="https://www.linkedin.com/company/cyberhand" className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-cyberhand-dark/10'}`}>
                 <LinkedinIcon className="h-5 w-5" />
               </a>
-              <a href="#" className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-cyberhand-dark/10'}`}>
+              <a href="https://www.instagram.com/cyberhand" className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-cyberhand-dark/10'}`}>
                 <InstagramIcon className="h-5 w-5" />
               </a>
-              <a href="#" className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-cyberhand-dark/10'}`}>
+              <a href="https://www.github.com/cyberhand" className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-cyberhand-dark/10'}`}>
                 <GithubIcon className="h-5 w-5" />
               </a>
             </div>
@@ -77,7 +77,7 @@ const Footer: React.FC<FooterProps> = ({ theme = 'dark' }) => {
         
         {/* Copyright */}
         <div className={`mt-8 pt-4 border-t ${isDark ? 'border-white/10 text-white/50' : 'border-cyberhand-dark/10 text-cyberhand-dark/50'} text-sm text-center`}>
-          <p>© {currentYear} CyberHand. All rights reserved.</p>
+          <p>&copy; {currentYear} CyberHand. All rights reserved.</p>
         </div>
       </div>
     </footer>
