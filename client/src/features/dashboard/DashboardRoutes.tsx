@@ -1,7 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import Dashboard from './Dashboard';
+import StandardDashboard from './StandardDashboard';
 import ProtectedRoute from '../../components/auth/ProtectedRoute';
 import ServicesView from './components/client/ServicesView';
 import ServiceDetailView from './components/client/ServiceDetailView';
@@ -10,6 +10,9 @@ import ClientProjects from './components/client/pages/Projects';
 import ClientDocuments from './components/client/pages/Documents';
 import ClientSupportTickets from './components/client/pages/SupportTickets';
 import ObserverOverview from './components/observer/pages/Overview';
+import ClientManagement from './components/admin/pages/ClientManagement';
+import ClientDetails from './components/admin/pages/ClientDetails';
+import ClientsView from './components/staff/pages/ClientsView';
 
 /**
  * DashboardRoutes handles routing for all dashboard-related pages
@@ -29,7 +32,7 @@ const DashboardRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Main dashboard route */}
-      <Route index element={<Dashboard />} />
+      <Route index element={<StandardDashboard />} />
       
       {/* Admin routes */}
       <Route 
@@ -37,8 +40,8 @@ const DashboardRoutes: React.FC = () => {
         element={
           <ProtectedRoute requiredRoles={['ADMIN']}>
             <Routes>
-              <Route index element={<Dashboard />} />
-              <Route path="dashboard" element={<Dashboard />} />
+              <Route index element={<StandardDashboard />} />
+              <Route path="dashboard" element={<StandardDashboard />} />
               <Route path="service-management" element={<div>Service Management</div>} />
               <Route path="service-management/:serviceId" element={<div>Service Details</div>} />
               <Route path="invoice-management" element={<div>Invoice Management</div>} />
@@ -59,10 +62,10 @@ const DashboardRoutes: React.FC = () => {
         element={
           <ProtectedRoute requiredRoles={['ADMIN', 'STAFF']}>
             <Routes>
-              <Route index element={<Dashboard />} />
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="client-management" element={<div>Client Management</div>} />
-              <Route path="client-management/:clientId" element={<div>Client Details</div>} />
+              <Route index element={<StandardDashboard />} />
+              <Route path="dashboard" element={<StandardDashboard />} />
+              <Route path="client-management" element={<ClientsView theme={theme} />} />
+              <Route path="client-management/:clientId" element={<ClientDetails theme={theme} />} />
               <Route path="client-management/:clientId/overview" element={<div>Client Overview</div>} />
               <Route path="client-management/:clientId/analytics" element={<div>Client Analytics</div>} />
               <Route path="client-management/:clientId/reports" element={<div>Client Reports</div>} />
