@@ -1,8 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   MessageCircle, Plus, Filter, Search, ChevronDown, 
-  AlertCircle, CheckCircle, Clock, User, X
+  AlertCircle, CheckCircle, Clock, User, X, 
+  RefreshCw
 } from 'lucide-react';
+
+// Import API services
+import supportAPI, { SupportTicket } from '../../../../../api/services/supportAPI';
+
+// Import custom hooks
+import useApiError from '../../../../../hooks/useApiError';
+
+// Import shared components
+import ErrorDisplay from '../../../../../components/ui/ErrorDisplay';
 
 // Mock support tickets data
 const mockTickets = [
@@ -141,9 +151,133 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ theme }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState('');
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  
+  // Error handling hook
+  const { error, isLoading, handleApiCall, clearError } = useApiError();
+  
+  // Fetch tickets on component mount
+  useEffect(() => {
+    fetchTickets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
+  
+  // Fetch tickets based on status filter
+  const fetchTickets = async () => {
+    try {
+      let response;
+      
+      if (statusFilter === 'all') {
+        response = await handleApiCall(
+          supportAPI.getAllTickets(),
+          { context: 'Fetching all support tickets' }
+        );
+      } else {
+        response = await handleApiCall(
+          supportAPI.getTicketsByStatus(statusFilter),
+          { context: `Fetching ${statusFilter} tickets` }
+        );
+      }
+      
+      if (response?.data) {
+        setTickets(response.data);
+      } else {
+        // Fallback to mock data if API fails
+        setTickets(mockTickets as SupportTicket[]);
+      }
+    } catch (err) {
+      console.error('Error fetching tickets:', err);
+      // Fallback to mock data
+      setTickets(mockTickets as SupportTicket[]);
+    }
+  };
+  
+  // Submit a new message to a ticket
+  const handleSubmitMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedTicket || !newMessage.trim()) return;
+    
+    try {
+      const response = await handleApiCall(
+        supportAPI.addMessage({
+          ticketId: selectedTicket,
+          message: newMessage.trim()
+        }),
+        { context: 'Sending support message' }
+      );
+      
+      if (response?.data) {
+        // Refresh the ticket to show the new message
+        const ticketResponse = await handleApiCall(
+          supportAPI.getTicketById(selectedTicket),
+          { context: 'Refreshing ticket' }
+        );
+        
+        if (ticketResponse?.data) {
+          // Update the ticket in the tickets array with the new data
+          setTickets(prevTickets => 
+            prevTickets.map(ticket => 
+              ticket.id === selectedTicket ? ticketResponse.data as SupportTicket : ticket
+            )
+          );
+          
+          // Clear the message input
+          setNewMessage('');
+        }
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
+      // Error is already handled by useApiError hook
+    }
+  };
+  
+  // Close a ticket
+  const handleCloseTicket = async (ticketId: number) => {
+    try {
+      const response = await handleApiCall(
+        supportAPI.closeTicket(ticketId),
+        { context: 'Closing support ticket' }
+      );
+      
+      if (response?.data) {
+        // Update the ticket in the state
+        setTickets(prevTickets => 
+          prevTickets.map(ticket => 
+            ticket.id === ticketId ? { ...ticket, status: 'Closed' } : ticket
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Error closing ticket:', err);
+      // Error is already handled by useApiError hook
+    }
+  };
+  
+  // Reopen a ticket
+  const handleReopenTicket = async (ticketId: number) => {
+    try {
+      const response = await handleApiCall(
+        supportAPI.reopenTicket(ticketId),
+        { context: 'Reopening support ticket' }
+      );
+      
+      if (response?.data) {
+        // Update the ticket in the state
+        setTickets(prevTickets => 
+          prevTickets.map(ticket => 
+            ticket.id === ticketId ? { ...ticket, status: 'Open' } : ticket
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Error reopening ticket:', err);
+      // Error is already handled by useApiError hook
+    }
+  };
 
   // Filter tickets based on search and status
-  const filteredTickets = mockTickets.filter(ticket => {
+  const filteredTickets = tickets.filter(ticket => {
     const matchesSearch = ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          ticket.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          ticket.category.toLowerCase().includes(searchQuery.toLowerCase());
@@ -155,7 +289,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ theme }) => {
 
   // Get the selected ticket details
   const ticketDetails = selectedTicket !== null 
-    ? mockTickets.find(ticket => ticket.id === selectedTicket) 
+    ? tickets.find(ticket => ticket.id === selectedTicket) 
     : null;
 
   // Format date to a readable format
@@ -207,308 +341,377 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ theme }) => {
     }
   };
 
-  // Get status icon for ticket
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Open':
-        return <AlertCircle className="h-4 w-4 text-blue-500 dark:text-blue-400" />;
-      case 'In Progress':
-        return <Clock className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />;
-      case 'Closed':
-        return <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />;
-      default:
-        return <AlertCircle className="h-4 w-4 text-gray-500 dark:text-gray-400" />;
-    }
-  };
-
   return (
-    <div className="w-full">
-      {!selectedTicket ? (
-        <div>
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-5">
-            <h1 className={`text-xl font-semibold mb-3 md:mb-0 ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>Support Tickets</h1>
-            
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className={`relative flex items-center ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-[#182032] border-[#2a3448]'} border rounded-md`}>
-                <Search className="h-4 w-4 absolute left-3 text-gray-500" />
-                <input
-                  type="text"
-                  placeholder="Search tickets..."
-                  className={`pl-9 pr-4 py-2 w-full sm:w-64 rounded-md focus:outline-none ${theme === 'light' ? 'bg-white text-gray-900' : 'bg-[#182032] text-white'}`}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              
-              <div className="relative">
-                <button
-                  onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`flex items-center px-4 py-2 ${theme === 'light' ? 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50' : 'bg-[#182032] border-[#2a3448] text-gray-200 hover:bg-[#1e2a45]'} border rounded-md`}
-                >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filter
-                  <ChevronDown className="h-4 w-4 ml-2" />
-                </button>
-                
-                {isFilterOpen && (
-                  <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg z-10 ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-[#182032] border-[#2a3448]'} border`}>
-                    <div className="py-1">
-                      <div className="px-4 py-2 text-sm font-medium">Status</div>
-                      <button
-                        className={`w-full text-left px-4 py-2 text-sm ${statusFilter === 'all' ? (theme === 'light' ? 'bg-gray-100' : 'bg-[#1e2a45]') : ''}`}
-                        onClick={() => setStatusFilter('all')}
-                      >
-                        All Statuses
-                      </button>
-                      <button
-                        className={`w-full text-left px-4 py-2 text-sm ${statusFilter === 'Open' ? (theme === 'light' ? 'bg-gray-100' : 'bg-[#1e2a45]') : ''}`}
-                        onClick={() => setStatusFilter('Open')}
-                      >
-                        Open
-                      </button>
-                      <button
-                        className={`w-full text-left px-4 py-2 text-sm ${statusFilter === 'In Progress' ? (theme === 'light' ? 'bg-gray-100' : 'bg-[#1e2a45]') : ''}`}
-                        onClick={() => setStatusFilter('In Progress')}
-                      >
-                        In Progress
-                      </button>
-                      <button
-                        className={`w-full text-left px-4 py-2 text-sm ${statusFilter === 'Closed' ? (theme === 'light' ? 'bg-gray-100' : 'bg-[#1e2a45]') : ''}`}
-                        onClick={() => setStatusFilter('Closed')}
-                      >
-                        Closed
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <button
-                className={`flex items-center px-4 py-2 rounded-md ${theme === 'light' ? 'bg-teal-500 hover:bg-teal-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New Ticket
-              </button>
+    <div className="w-full h-full">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+        <h1 className={`text-xl font-semibold mb-4 md:mb-0 ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
+          Support & Requests
+        </h1>
+        
+        <div className="flex flex-col md:flex-row gap-3">
+          {/* Refresh button */}
+          <button
+            onClick={fetchTickets}
+            disabled={isLoading}
+            className={`p-2 rounded-md ${theme === 'light' ? 'bg-white border border-gray-300' : 'bg-[#1e2a45] border border-[#2a3448]'}`}
+          >
+            <RefreshCw 
+              size={16} 
+              className={`${isLoading ? 'animate-spin' : ''} ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}
+            />
+          </button>
+          
+          {/* Search input */}
+          <div className={`relative ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4" />
             </div>
+            <input
+              type="text"
+              className={`pl-10 pr-4 py-2 text-sm rounded-md w-full md:w-64 ${
+                theme === 'light' 
+                  ? 'bg-white border border-gray-300 focus:ring-teal-500 focus:border-teal-500' 
+                  : 'bg-[#1e2a45] border border-[#2a3448] focus:ring-teal-400 focus:border-teal-400'
+              }`}
+              placeholder="Search support tickets..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
           
-          <div className="space-y-4">
-            {filteredTickets.map((ticket) => (
-              <div 
-                key={ticket.id} 
-                className={`rounded-lg overflow-hidden border ${theme === 'light' ? 'border-gray-200 bg-white hover:bg-gray-50' : 'border-[#2a3448] bg-[#162238] hover:bg-[#1e2a45]'} cursor-pointer`}
-                onClick={() => setSelectedTicket(ticket.id)}
-              >
-                <div className="px-6 py-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center flex-wrap gap-2 mb-1">
-                        {getStatusIcon(ticket.status)}
-                        <h3 className={`text-lg font-medium ${theme === 'light' ? 'text-gray-900' : 'text-white'} ml-1`}>
-                          {ticket.title}
-                        </h3>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(ticket.status)}`}>
-                          {ticket.status}
-                        </span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityClass(ticket.priority)}`}>
-                          {ticket.priority} Priority
-                        </span>
-                      </div>
-                      
-                      <div className="mt-1">
-                        <span className={`inline-block mr-3 text-sm ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                          Ticket #{ticket.id}
-                        </span>
-                        <span className={`inline-block mr-3 text-sm ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                          Category: {ticket.category}
-                        </span>
-                      </div>
-                      
-                      <p className={`mt-2 text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                        {ticket.description.length > 120 ? ticket.description.substring(0, 120) + '...' : ticket.description}
-                      </p>
-                    </div>
-                    
-                    <div className="flex flex-col items-end mt-4 md:mt-0">
-                      <div className="flex items-center">
-                        <User className={`h-4 w-4 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'} mr-1`} />
-                        <span className={`text-sm ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                          {ticket.assignedTo}
-                        </span>
-                      </div>
-                      <div className={`text-xs mt-1 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                        Created: {formatDate(ticket.createdAt)}
-                      </div>
-                      <div className={`text-xs mt-1 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                        Last updated: {formatDate(ticket.updatedAt)}
-                      </div>
-                      <div className={`text-xs mt-1 ${theme === 'light' ? 'text-teal-600 dark:text-teal-400' : 'text-teal-500 dark:text-teal-300'}`}>
-                        {ticket.messages.length} message{ticket.messages.length !== 1 ? 's' : ''}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          {/* Status filter */}
+          <div className="relative">
+            <button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={`flex items-center justify-between w-full md:w-auto px-4 py-2 text-sm rounded-md ${
+                theme === 'light' 
+                  ? 'bg-white border border-gray-300 text-gray-700' 
+                  : 'bg-[#1e2a45] border border-[#2a3448] text-gray-300'
+              }`}
+            >
+              <div className="flex items-center">
+                <Filter className="w-4 h-4 mr-2" />
+                <span>
+                  {statusFilter === 'all' ? 'All Statuses' : 
+                   statusFilter === 'Open' ? 'Open' : 
+                   statusFilter === 'In Progress' ? 'In Progress' : 
+                   'Closed'}
+                </span>
               </div>
-            ))}
+              <ChevronDown className="w-4 h-4 ml-2" />
+            </button>
             
-            {filteredTickets.length === 0 && (
-              <div className={`py-10 text-center ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-[#162238] border border-[#2a3448]'} rounded-lg`}>
-                <div className={`text-lg font-medium ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                  No tickets found
+            {isFilterOpen && (
+              <div className={`absolute right-0 mt-2 w-56 rounded-md shadow-lg z-10 ${
+                theme === 'light' 
+                  ? 'bg-white border border-gray-200' 
+                  : 'bg-[#1e2a45] border border-[#2a3448]'
+              }`}>
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      setStatusFilter('all');
+                      setIsFilterOpen(false);
+                    }}
+                    className={`block px-4 py-2 text-sm w-full text-left ${
+                      theme === 'light' 
+                        ? 'text-gray-700 hover:bg-gray-100' 
+                        : 'text-gray-300 hover:bg-[#2a3448]'
+                    } ${statusFilter === 'all' ? 'bg-gray-100 dark:bg-[#2a3448]' : ''}`}
+                  >
+                    All Statuses
+                  </button>
+                  <button
+                    onClick={() => {
+                      setStatusFilter('Open');
+                      setIsFilterOpen(false);
+                    }}
+                    className={`block px-4 py-2 text-sm w-full text-left ${
+                      theme === 'light' 
+                        ? 'text-gray-700 hover:bg-gray-100' 
+                        : 'text-gray-300 hover:bg-[#2a3448]'
+                    } ${statusFilter === 'Open' ? 'bg-gray-100 dark:bg-[#2a3448]' : ''}`}
+                  >
+                    Open
+                  </button>
+                  <button
+                    onClick={() => {
+                      setStatusFilter('In Progress');
+                      setIsFilterOpen(false);
+                    }}
+                    className={`block px-4 py-2 text-sm w-full text-left ${
+                      theme === 'light' 
+                        ? 'text-gray-700 hover:bg-gray-100' 
+                        : 'text-gray-300 hover:bg-[#2a3448]'
+                    } ${statusFilter === 'In Progress' ? 'bg-gray-100 dark:bg-[#2a3448]' : ''}`}
+                  >
+                    In Progress
+                  </button>
+                  <button
+                    onClick={() => {
+                      setStatusFilter('Closed');
+                      setIsFilterOpen(false);
+                    }}
+                    className={`block px-4 py-2 text-sm w-full text-left ${
+                      theme === 'light' 
+                        ? 'text-gray-700 hover:bg-gray-100' 
+                        : 'text-gray-300 hover:bg-[#2a3448]'
+                    } ${statusFilter === 'Closed' ? 'bg-gray-100 dark:bg-[#2a3448]' : ''}`}
+                  >
+                    Closed
+                  </button>
                 </div>
-                <p className={`text-sm ${theme === 'light' ? 'text-gray-400' : 'text-gray-500'}`}>
-                  {searchQuery || statusFilter !== 'all' ? 'Try adjusting your search or filters' : 'Create a new support ticket to get help'}
-                </p>
-                <button
-                  className={`mt-4 px-4 py-2 ${theme === 'light' ? 'bg-teal-500 hover:bg-teal-600' : 'bg-teal-600 hover:bg-teal-700'} text-white rounded-md`}
-                >
-                  <Plus className="h-4 w-4 inline-block mr-2" />
-                  New Ticket
-                </button>
               </div>
             )}
           </div>
+          
+          {/* Create ticket button */}
+          <button
+            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${
+              theme === 'light'
+                ? 'bg-teal-500 text-white hover:bg-teal-600'
+                : 'bg-teal-600 text-white hover:bg-teal-700'
+            }`}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Ticket
+          </button>
+        </div>
+      </div>
+      
+      {/* Error display */}
+      {error && (
+        <div className="mb-6">
+          <ErrorDisplay
+            error={error}
+            onDismiss={clearError}
+          />
+        </div>
+      )}
+      
+      {/* Loading state */}
+      {isLoading && !tickets.length ? (
+        <div className="flex justify-center items-center p-12">
+          <div className={`animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 ${theme === 'light' ? 'border-teal-500' : 'border-teal-400'}`}></div>
         </div>
       ) : (
-        // Selected ticket details view
-        <div>
-          {ticketDetails && (
-            <div className={`rounded-lg overflow-hidden border ${theme === 'light' ? 'border-gray-200' : 'border-[#2a3448]'}`}>
-              {/* Ticket header */}
-              <div className={`px-6 py-4 ${theme === 'light' ? 'bg-white border-b border-gray-200' : 'bg-[#162238] border-b border-[#2a3448]'}`}>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center flex-wrap gap-2 mb-1">
-                      <button 
-                        onClick={() => setSelectedTicket(null)}
-                        className={`p-1 -ml-1 rounded-md ${theme === 'light' ? 'hover:bg-gray-100' : 'hover:bg-[#1e2a45]'}`}
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* Tickets list */}
+          <div className={`w-full md:w-2/5 lg:w-1/3 ${selectedTicket ? 'hidden md:block' : ''}`}>
+            {filteredTickets.length > 0 ? (
+              <div className={`border rounded-lg overflow-hidden ${theme === 'light' ? 'border-gray-200' : 'border-[#2a3448]'}`}>
+                <ul className={`divide-y ${theme === 'light' ? 'divide-gray-200' : 'divide-[#2a3448]'}`}>
+                  {filteredTickets.map((ticket) => (
+                    <li key={ticket.id}>
+                      <button
+                        onClick={() => setSelectedTicket(ticket.id)}
+                        className={`w-full text-left p-4 ${
+                          selectedTicket === ticket.id
+                            ? theme === 'light'
+                              ? 'bg-teal-50'
+                              : 'bg-teal-900/20'
+                            : theme === 'light'
+                            ? 'bg-white hover:bg-gray-50'
+                            : 'bg-[#162238] hover:bg-[#1e2a45]'
+                        }`}
                       >
-                        <svg 
-                          xmlns="http://www.w3.org/2000/svg" 
-                          className={`h-5 w-5 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`} 
-                          fill="none" 
-                          viewBox="0 0 24 24" 
-                          stroke="currentColor"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
+                        <div className="flex justify-between">
+                          <h3 className={`font-medium ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
+                            {ticket.title}
+                          </h3>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(ticket.status)}`}>
+                            {ticket.status}
+                          </span>
+                        </div>
+                        <p className={`mt-1 text-sm line-clamp-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>
+                          {ticket.description}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className={`inline-flex items-center text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                            <MessageCircle className="w-3 h-3 mr-1" />
+                            {ticket.messages.length}
+                          </span>
+                          <span className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                            {formatDate(ticket.updatedAt)}
+                          </span>
+                        </div>
                       </button>
-                      <h2 className={`text-lg font-medium ${theme === 'light' ? 'text-gray-900' : 'text-white'} ml-1`}>
-                        Ticket #{ticketDetails.id}: {ticketDetails.title}
-                      </h2>
-                    </div>
-                    
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(ticketDetails.status)}`}>
-                        {ticketDetails.status}
-                      </span>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityClass(ticketDetails.priority)}`}>
-                        {ticketDetails.priority} Priority
-                      </span>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${theme === 'light' ? 'bg-gray-100 text-gray-800' : 'bg-gray-700 text-gray-300'}`}>
-                        {ticketDetails.category}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex">
-                    <button
-                      className={`ml-2 px-3 py-1 rounded-md text-sm ${ticketDetails.status === 'Closed' ? 
-                        (theme === 'light' ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-yellow-900 text-yellow-300 hover:bg-yellow-800') : 
-                        (theme === 'light' ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-red-900 text-red-300 hover:bg-red-800')}`}
-                    >
-                      {ticketDetails.status === 'Closed' ? 'Reopen Ticket' : 'Close Ticket'}
-                    </button>
-                  </div>
-                </div>
-                
-                <div className={`mt-3 text-sm ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                  <span className="mr-3">Created: {formatDate(ticketDetails.createdAt)}</span>
-                  <span className="mr-3">Updated: {formatDate(ticketDetails.updatedAt)}</span>
-                  <span>Assigned to: {ticketDetails.assignedTo}</span>
-                </div>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              
-              {/* Ticket conversation */}
-              <div className={`px-6 py-4 ${theme === 'light' ? 'bg-gray-50' : 'bg-[#1e2a45]'}`}>
-                <div className={`mb-4 rounded-lg p-4 ${theme === 'light' ? 'bg-white border border-gray-200' : 'bg-[#162238] border border-[#2a3448]'}`}>
-                  <h3 className={`text-md font-medium mb-2 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>Description</h3>
-                  <p className={`text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>{ticketDetails.description}</p>
-                </div>
-                
-                <h3 className={`text-md font-medium mb-3 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>Conversation</h3>
-                
-                <div className="space-y-4 mb-4 max-h-96 overflow-y-auto">
-                  {ticketDetails.messages.map((message) => {
-                    const isClient = message.senderRole === 'Client';
-                    
-                    return (
-                      <div 
-                        key={message.id}
-                        className={`flex ${isClient ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div className={`max-w-md rounded-lg p-4 ${
-                          isClient ? 
-                            (theme === 'light' ? 'bg-teal-100 text-teal-900' : 'bg-teal-900 text-teal-100') : 
-                            (theme === 'light' ? 'bg-white border border-gray-200 text-gray-700' : 'bg-[#162238] border border-[#2a3448] text-gray-300')
-                        }`}>
-                          <div className="flex justify-between items-start mb-1">
-                            <span className={`text-sm font-medium ${
-                              isClient ? 
-                                (theme === 'light' ? 'text-teal-800' : 'text-teal-200') : 
-                                (theme === 'light' ? 'text-gray-900' : 'text-white')
-                            }`}>
-                              {message.sender} {!isClient && `(${message.senderRole})`}
-                            </span>
-                            <span className={`text-xs ${
-                              isClient ? 
-                                (theme === 'light' ? 'text-teal-700' : 'text-teal-300') : 
-                                (theme === 'light' ? 'text-gray-500' : 'text-gray-400')
-                            }`}>
-                              {formatTimestamp(message.timestamp)}
-                            </span>
-                          </div>
-                          <p className="text-sm whitespace-pre-wrap">{message.message}</p>
+            ) : (
+              <div className={`text-center py-8 border rounded-lg ${theme === 'light' ? 'border-gray-200 text-gray-500' : 'border-[#2a3448] text-gray-400'}`}>
+                {searchQuery ? 'No tickets match your search.' : 'No support tickets found.'}
+              </div>
+            )}
+          </div>
+          
+          {/* Ticket detail view */}
+          {selectedTicket ? (
+            <div className="w-full md:w-3/5 lg:w-2/3">
+              {ticketDetails ? (
+                <div className={`border rounded-lg overflow-hidden ${theme === 'light' ? 'border-gray-200' : 'border-[#2a3448]'}`}>
+                  {/* Ticket header */}
+                  <div className={`p-4 border-b ${theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-[#1e2a45] border-[#2a3448]'}`}>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center">
+                          <h2 className={`font-semibold ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
+                            {ticketDetails.title}
+                          </h2>
+                          <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(ticketDetails.status)}`}>
+                            {ticketDetails.status}
+                          </span>
+                        </div>
+                        <div className={`mt-1 flex items-center text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                          <span>Ticket #{ticketDetails.id}</span>
+                          <span className="mx-1">•</span>
+                          <span>Created {formatDate(ticketDetails.createdAt)}</span>
+                          <span className="mx-1">•</span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityClass(ticketDetails.priority)}`}>
+                            {ticketDetails.priority} Priority
+                          </span>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-                
-                {/* Reply form */}
-                {ticketDetails.status !== 'Closed' && (
-                  <div className={`rounded-lg border ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-[#162238] border-[#2a3448]'} p-4`}>
-                    <div className="flex flex-col">
-                      <label htmlFor="reply" className={`text-sm font-medium mb-2 ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
-                        Reply to ticket
-                      </label>
-                      <textarea
-                        id="reply"
-                        rows={4}
-                        className={`rounded-md border p-3 text-sm mb-3 ${
-                          theme === 'light' ? 
-                            'bg-white border-gray-300 text-gray-900 focus:border-teal-500' : 
-                            'bg-[#1e2a45] border-[#2a3448] text-white focus:border-teal-400'
-                        } focus:outline-none`}
-                        placeholder="Type your reply here..."
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                      ></textarea>
-                      <div className="flex justify-end">
-                        <button 
-                          className={`px-4 py-2 rounded-md text-sm ${
-                            theme === 'light' ? 
-                              'bg-teal-500 hover:bg-teal-600 text-white' : 
-                              'bg-teal-600 hover:bg-teal-700 text-white'
+                      <div className="flex gap-2">
+                        {ticketDetails.status !== 'Closed' ? (
+                          <button
+                            onClick={() => handleCloseTicket(ticketDetails.id)}
+                            className={`px-3 py-1 text-xs font-medium rounded-md ${
+                              theme === 'light'
+                                ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                : 'bg-green-900/30 text-green-400 hover:bg-green-900/40'
+                            }`}
+                          >
+                            Close Ticket
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleReopenTicket(ticketDetails.id)}
+                            className={`px-3 py-1 text-xs font-medium rounded-md ${
+                              theme === 'light'
+                                ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                : 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/40'
+                            }`}
+                          >
+                            Reopen Ticket
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setSelectedTicket(null)}
+                          className={`md:hidden inline-flex items-center justify-center p-1 rounded-md ${
+                            theme === 'light'
+                              ? 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                              : 'text-gray-400 hover:text-gray-200 hover:bg-[#2a3448]'
                           }`}
-                          disabled={!newMessage.trim().length}
                         >
-                          Send Reply
+                          <X className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
+                    <p className={`mt-2 text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>
+                      {ticketDetails.description}
+                    </p>
+                    <div className={`mt-3 pt-3 border-t ${theme === 'light' ? 'border-gray-200' : 'border-[#2a3448]'}`}>
+                      <div className={`text-xs flex items-center ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                        <span className="font-medium">Category:</span>
+                        <span className="ml-1">{ticketDetails.category}</span>
+                        <span className="mx-2">•</span>
+                        <span className="font-medium">Assigned to:</span>
+                        <span className="ml-1 inline-flex items-center">
+                          <User className="w-3 h-3 mr-1" />
+                          {ticketDetails.assignedTo}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                )}
+                  
+                  {/* Message thread */}
+                  <div className={`p-4 ${theme === 'light' ? 'bg-white' : 'bg-[#162238]'}`}>
+                    <h3 className={`text-sm font-medium mb-4 ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                      Conversation
+                    </h3>
+                    <div className="space-y-4 max-h-96 overflow-y-auto mb-4">
+                      {ticketDetails.messages.map((message) => (
+                        <div key={message.id} className="flex gap-3">
+                          <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${
+                            message.senderRole === 'Client'
+                              ? 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300'
+                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                          }`}>
+                            <User className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center">
+                              <span className={`font-medium text-sm ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>
+                                {message.sender}
+                              </span>
+                              <span className={`ml-2 text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                                {message.senderRole}
+                              </span>
+                              <span className={`ml-2 text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                                {formatTimestamp(message.timestamp)}
+                              </span>
+                            </div>
+                            <div className={`mt-1 text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>
+                              {message.message}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Reply form */}
+                    {ticketDetails.status !== 'Closed' && (
+                      <form onSubmit={handleSubmitMessage}>
+                        <div className={`border rounded-md ${theme === 'light' ? 'border-gray-300' : 'border-[#2a3448]'}`}>
+                          <textarea
+                            className={`block w-full p-3 text-sm rounded-t-md resize-none ${
+                              theme === 'light'
+                                ? 'bg-white text-gray-700 focus:ring-teal-500 focus:border-teal-500'
+                                : 'bg-[#1e2a45] text-gray-300 focus:ring-teal-400 focus:border-teal-400'
+                            }`}
+                            rows={3}
+                            placeholder="Type your message here..."
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            disabled={isLoading}
+                          ></textarea>
+                          <div className={`flex justify-between items-center px-3 py-2 rounded-b-md ${theme === 'light' ? 'bg-gray-50' : 'bg-[#1e2a45]'}`}>
+                            <div></div>
+                            <button
+                              type="submit"
+                              disabled={!newMessage.trim() || isLoading}
+                              className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md ${
+                                !newMessage.trim() || isLoading
+                                  ? 'bg-gray-300 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed'
+                                  : theme === 'light'
+                                  ? 'bg-teal-500 text-white hover:bg-teal-600'
+                                  : 'bg-teal-600 text-white hover:bg-teal-700'
+                              }`}
+                            >
+                              {isLoading ? 'Sending...' : 'Send Message'}
+                            </button>
+                          </div>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className={`flex justify-center items-center p-12 border rounded-lg ${theme === 'light' ? 'border-gray-200' : 'border-[#2a3448]'}`}>
+                  <div className={`text-center ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Ticket not found.
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="hidden md:flex md:w-3/5 lg:w-2/3 items-center justify-center">
+              <div className={`text-center ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                <MessageCircle className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                <p>Select a ticket to view details</p>
               </div>
             </div>
           )}

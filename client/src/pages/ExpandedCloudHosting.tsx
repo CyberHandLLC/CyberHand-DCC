@@ -117,7 +117,7 @@ const ExpandedCloudHosting: React.FC = () => {
               </p>
               
               <div className="bg-white/5 backdrop-blur-sm rounded-xl p-8 border border-white/10">
-                <h3 className="text-2xl font-semibold mb-4">What's Included</h3>
+                <h3 className="text-2xl font-semibold mb-4">What&apos;s Included</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                   <div className="flex gap-3">
                     <span className="text-cyberhand-green">•</span>

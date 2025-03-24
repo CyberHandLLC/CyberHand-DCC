@@ -39,7 +39,7 @@ const Unauthorized: React.FC = () => {
           </h2>
           
           <p className="mt-2 text-center text-gray-600">
-            You don't have permission to access this resource. If you believe this is an error, please contact your administrator or support team.
+            You don&apos;t have permission to access this resource. If you believe this is an error, please contact your administrator or support team.
           </p>
           
           {user && (

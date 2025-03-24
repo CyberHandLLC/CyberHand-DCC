@@ -52,4 +52,10 @@ export interface ErrorNotification {
   timestamp: string;
   details?: string;
   dismissed?: boolean;
+  /** Optional title for the notification */
+  title?: string;
+  /** Optional text for an action button */
+  actionText?: string;
+  /** Optional handler function for the action button click */
+  actionHandler?: () => void;
 }

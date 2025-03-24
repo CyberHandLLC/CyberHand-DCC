@@ -1,317 +1,441 @@
-import React, { useState } from 'react';
-import { Search, Filter, Plus, Edit, Trash, MoreVertical, ChevronDown, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { 
+  Search, 
+  Filter, 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Eye,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Loader
+} from 'lucide-react';
 
-// Mock service data
-const mockServices = [
-  {
-    id: 1,
-    name: 'Website Development',
-    category: 'Web Development',
-    description: 'Custom website design and development services',
-    price: 2499,
-    recurring: false,
-    status: 'active',
-    clientCount: 15
-  },
-  {
-    id: 2,
-    name: 'SEO Package',
-    category: 'Marketing',
-    description: 'Search engine optimization to improve website visibility',
-    price: 799,
-    recurring: true,
-    billingPeriod: 'monthly',
-    status: 'active',
-    clientCount: 24
-  },
-  {
-    id: 3,
-    name: 'Social Media Management',
-    category: 'Marketing',
-    description: 'Comprehensive social media management across platforms',
-    price: 599,
-    recurring: true,
-    billingPeriod: 'monthly',
-    status: 'active',
-    clientCount: 18
-  },
-  {
-    id: 4,
-    name: 'Web Hosting',
-    category: 'Hosting',
-    description: 'Reliable and secure web hosting services',
-    price: 49,
-    recurring: true,
-    billingPeriod: 'monthly',
-    status: 'active',
-    clientCount: 32
-  },
-  {
-    id: 5,
-    name: 'Email Marketing',
-    category: 'Marketing',
-    description: 'Email campaign management and analytics',
-    price: 349,
-    recurring: true,
-    billingPeriod: 'monthly',
-    status: 'inactive',
-    clientCount: 7
-  },
-  {
-    id: 6,
-    name: 'Mobile App Development',
-    category: 'App Development',
-    description: 'Custom mobile application development for iOS and Android',
-    price: 4999,
-    recurring: false,
-    status: 'active',
-    clientCount: 5
-  },
-  {
-    id: 7,
-    name: 'AI Integration',
-    category: 'Technology',
-    description: 'Integrate AI and machine learning capabilities into existing systems',
-    price: 1999,
-    recurring: false,
-    status: 'active',
-    clientCount: 3
-  }
-];
+// Import shared components
+import StatusBadge from '../../../../../components/ui/StatusBadge';
+import TabNavigation from '../../../../../components/ui/TabNavigation';
+import ErrorDisplay from '../../../../../components/ui/ErrorDisplay';
+
+// Import hooks and API
+import useApiError from '../../../../../hooks/useApiError';
+import adminServiceAPI from '../../../../../api/services/adminServiceAPI';
+
+// Import types and format utilities
+import { Service } from '../../../../../types/service';
 
 interface ServicesManagementProps {
-  theme: 'light' | 'dark';
+  categoryId?: string;
 }
 
-const ServicesManagement: React.FC<ServicesManagementProps> = ({ theme }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-
-  // Filter services based on search, category, and status
-  const filteredServices = mockServices.filter(service => {
-    const matchesSearch = service.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         service.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCategory = categoryFilter === 'all' || service.category === categoryFilter;
-    const matchesStatus = statusFilter === 'all' || service.status === statusFilter;
-    
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
-
-  // Get unique categories for filter dropdown
-  const categories = ['all', ...mockServices
-    .map(service => service.category)
-    .filter((category, index, array) => array.indexOf(category) === index)
-  ];
-
-  // Get appropriate CSS class for service status
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'inactive':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+const ServicesManagement: React.FC<ServicesManagementProps> = ({ categoryId }) => {
+  const [activeServiceTab, setActiveServiceTab] = useState("All Services");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [services, setServices] = useState<Service[]>([]);
+  const [categories, setCategories] = useState<string[]>(["All Services"]);
+  const { error, isLoading, handleApiCall, clearError } = useApiError();
+  
+  // Fetch services and categories when component mounts
+  useEffect(() => {
+    fetchServices();
+    fetchCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  // Fetch services based on active tab
+  useEffect(() => {
+    fetchServices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeServiceTab]);
+  
+  // Fetch all services or services by category
+  const fetchServices = async () => {
+    try {
+      if (activeServiceTab === "All Services") {
+        const response = await handleApiCall(
+          adminServiceAPI.getAllServices(),
+          { context: 'Fetching all services' }
+        );
+        
+        if (response?.data) {
+          setServices(response.data);
+        }
+      } else {
+        const response = await handleApiCall(
+          adminServiceAPI.getServicesByCategory(activeServiceTab),
+          { context: `Fetching ${activeServiceTab} services` }
+        );
+        
+        if (response?.data) {
+          setServices(response.data);
+        }
+      }
+    } catch (err) {
+      // Error is already handled by useApiError
+      console.error('Error fetching services:', err);
     }
   };
-
-  // Format price with billing period if applicable
-  const formatPrice = (service: any) => {
-    if (service.recurring) {
-      return `$${service.price}/${service.billingPeriod.charAt(0)}`;
+  
+  // Fetch service categories
+  const fetchCategories = async () => {
+    try {
+      const response = await handleApiCall(
+        adminServiceAPI.getServiceCategories(),
+        { context: 'Fetching service categories' }
+      );
+      
+      if (response?.data) {
+        setCategories(["All Services", ...response.data]);
+      }
+    } catch (err) {
+      // Error is already handled by useApiError
+      console.error('Error fetching categories:', err);
     }
+  };
+  
+  // Filter services based on search query
+  const getFilteredServices = () => {
+    let filtered = [...services];
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(service => 
+        service.name.toLowerCase().includes(query) || 
+        service.description.toLowerCase().includes(query) ||
+        service.category.toLowerCase().includes(query)
+      );
+    }
+    
+    // Sort the data
+    if (sortColumn) {
+      filtered.sort((a, b) => {
+        const aValue = a[sortColumn as keyof Service];
+        const bValue = b[sortColumn as keyof Service];
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortDirection === 'asc' 
+            ? aValue.localeCompare(bValue) 
+            : bValue.localeCompare(aValue);
+        }
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+        
+        return 0;
+      });
+    }
+    
+    return filtered;
+  };
+  
+  const filteredServices = getFilteredServices();
+  
+  // Toggle sort when clicking a column header
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+  
+  // Render sort indicator
+  const renderSortIndicator = (column: string) => {
+    if (sortColumn !== column) return null;
+    
+    return (
+      <ArrowUpDown className={`ml-1 h-4 w-4 inline ${
+        sortDirection === 'asc' ? 'transform rotate-180' : ''
+      }`} />
+    );
+  };
+  
+  // Format price with billing period
+  const formatPrice = (service: Service) => {
+    if (service.recurring && service.billingPeriod) {
+      const periodMap: Record<string, string> = {
+        'monthly': 'mo',
+        'quarterly': 'qtr',
+        'yearly': 'yr',
+        'one-time': 'one-time'
+      };
+      
+      return `$${service.price}/${periodMap[service.billingPeriod]}`;
+    }
+    
     return `$${service.price}`;
   };
 
+  // Handle service delete
+  const handleDeleteService = async (id: number) => {
+    if (window.confirm('Are you sure you want to delete this service?')) {
+      await handleApiCall(
+        adminServiceAPI.deleteService(id),
+        { context: 'Deleting service' }
+      );
+      
+      // Refresh services after delete
+      fetchServices();
+    }
+  };
+
   return (
-    <div className="w-full">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-5">
-        <h1 className={`text-xl font-semibold mb-3 md:mb-0 ${theme === 'light' ? 'text-gray-800' : 'text-white'}`}>Services Management</h1>
-        
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className={`relative flex items-center ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-[#182032] border-[#2a3448]'} border rounded-md`}>
-            <Search className="h-4 w-4 absolute left-3 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Search services..."
-              className={`pl-9 pr-4 py-2 w-full sm:w-64 rounded-md focus:outline-none ${theme === 'light' ? 'bg-white text-gray-900' : 'bg-[#182032] text-white'}`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+    <div className="space-y-4">
+      {/* Services Management Header */}
+      <div className="bg-white rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Services Management
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Create, manage and monitor service offerings
+            </p>
           </div>
           
-          <div className="relative">
-            <button
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className={`flex items-center px-4 py-2 ${theme === 'light' ? 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50' : 'bg-[#182032] border-[#2a3448] text-gray-200 hover:bg-[#1e2a45]'} border rounded-md`}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[200px]">
+              <input
+                type="text"
+                placeholder="Search services..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              />
+              <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600">
+                <Filter className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+              </button>
+              
+              <button className="p-2 bg-primary text-white rounded-lg hover:bg-blue-600">
+                <Plus className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Services tabs for desktop */}
+        <div className="mt-4 hidden md:block">
+          <TabNavigation
+            tabs={categories}
+            activeTab={activeServiceTab}
+            onTabChange={setActiveServiceTab}
+          />
+        </div>
+        
+        {/* Services tabs for mobile with arrows */}
+        <div className="mt-4 md:hidden">
+          <div className="flex items-center justify-between bg-gray-100 p-2 rounded-md dark:bg-gray-700">
+            <button 
+              onClick={() => {
+                const currentIndex = categories.indexOf(activeServiceTab);
+                if (currentIndex > 0) {
+                  setActiveServiceTab(categories[currentIndex - 1]);
+                }
+              }}
+              disabled={categories.indexOf(activeServiceTab) === 0}
+              className={`p-1.5 rounded-md ${
+                categories.indexOf(activeServiceTab) === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              } bg-gray-200 dark:bg-gray-600`}
             >
-              <Filter className="h-4 w-4 mr-2" />
-              Filter
-              <ChevronDown className="h-4 w-4 ml-2" />
+              <ChevronLeft className="h-3 w-3" />
             </button>
             
-            {isFilterOpen && (
-              <div className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg z-10 ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-[#182032] border-[#2a3448]'} border`}>
-                <div className="py-1">
-                  <div className="px-4 py-2 text-sm font-medium">Category</div>
-                  {categories.map((category) => (
-                    <button
-                      key={category}
-                      className={`w-full text-left px-4 py-2 text-sm ${categoryFilter === category ? (theme === 'light' ? 'bg-gray-100' : 'bg-[#1e2a45]') : ''}`}
-                      onClick={() => setCategoryFilter(category)}
-                    >
-                      {category === 'all' ? 'All Categories' : category}
-                    </button>
-                  ))}
-                  
-                  <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
-                  
-                  <div className="px-4 py-2 text-sm font-medium">Status</div>
-                  <button
-                    className={`w-full text-left px-4 py-2 text-sm ${statusFilter === 'all' ? (theme === 'light' ? 'bg-gray-100' : 'bg-[#1e2a45]') : ''}`}
-                    onClick={() => setStatusFilter('all')}
-                  >
-                    All
-                  </button>
-                  <button
-                    className={`w-full text-left px-4 py-2 text-sm ${statusFilter === 'active' ? (theme === 'light' ? 'bg-gray-100' : 'bg-[#1e2a45]') : ''}`}
-                    onClick={() => setStatusFilter('active')}
-                  >
-                    Active
-                  </button>
-                  <button
-                    className={`w-full text-left px-4 py-2 text-sm ${statusFilter === 'inactive' ? (theme === 'light' ? 'bg-gray-100' : 'bg-[#1e2a45]') : ''}`}
-                    onClick={() => setStatusFilter('inactive')}
-                  >
-                    Inactive
-                  </button>
-                </div>
-              </div>
+            <span className="font-medium text-xs px-2 py-1 rounded-md text-center min-w-[120px] bg-white dark:bg-gray-800">
+              {activeServiceTab}
+            </span>
+            
+            <button 
+              onClick={() => {
+                const currentIndex = categories.indexOf(activeServiceTab);
+                if (currentIndex < categories.length - 1) {
+                  setActiveServiceTab(categories[currentIndex + 1]);
+                }
+              }}
+              disabled={categories.indexOf(activeServiceTab) === categories.length - 1}
+              className={`p-1.5 rounded-md ${
+                categories.indexOf(activeServiceTab) === categories.length - 1 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              } bg-gray-200 dark:bg-gray-600`}
+            >
+              <ChevronRight className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Error display */}
+      {error && (
+        <ErrorDisplay 
+          error={error} 
+          onDismiss={clearError}
+          className="mb-4"
+        />
+      )}
+      
+      {/* Services list */}
+      <div className="bg-white rounded-lg shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700">
+        {/* Loading state */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2">Loading services...</span>
+          </div>
+        ) : filteredServices.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <p>No services found matching your criteria.</p>
+            {error && (
+              <button
+                onClick={fetchServices}
+                className="mt-4 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+              >
+                Retry
+              </button>
             )}
           </div>
-          
-          <button 
-            className={`flex items-center px-4 py-2 ${theme === 'light' ? 'bg-teal-500 hover:bg-teal-600' : 'bg-teal-600 hover:bg-teal-700'} text-white rounded-md`}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Service
-          </button>
-        </div>
-      </div>
-      
-      <div className={`rounded-lg overflow-hidden border ${theme === 'light' ? 'border-gray-200' : 'border-[#2a3448]'}`}>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className={`${theme === 'light' ? 'bg-gray-50' : 'bg-[#12192e]'}`}>
-              <tr>
-                <th className={`px-6 py-3 text-left text-xs font-medium ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-wider`}>
-                  Service
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-wider`}>
-                  Category
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-wider`}>
-                  Price
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-wider`}>
-                  Status
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-wider`}>
-                  Clients
-                </th>
-                <th className={`px-6 py-3 text-right text-xs font-medium ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-wider`}>
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className={`${theme === 'light' ? 'bg-white divide-y divide-gray-200' : 'bg-[#162238] divide-y divide-[#2a3448]'}`}>
+        ) : (
+          <div>
+            {/* Mobile view - card layout */}
+            <div className="md:hidden space-y-4">
               {filteredServices.map((service) => (
-                <tr key={service.id} className={`${theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-[#1e2a45]'}`}>
-                  <td className="px-6 py-4">
-                    <div className={`text-sm font-medium ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                      {service.name}
+                <div 
+                  key={service.id} 
+                  className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 dark:bg-gray-800 dark:border-gray-700"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-md font-medium text-gray-900 dark:text-white">{service.name}</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{service.category}</p>
                     </div>
-                    <div className={`text-sm ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                      {service.description.length > 60 
-                        ? `${service.description.substring(0, 60)}...` 
-                        : service.description}
+                    <StatusBadge status={service.status} />
+                  </div>
+                  
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400">Price:</span>
+                      <span className="ml-2 font-medium text-gray-900 dark:text-white">{formatPrice(service)}</span>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                      {service.category}
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400">Clients:</span>
+                      <span className="ml-2 font-medium text-gray-900 dark:text-white">{service.clientCount}</span>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm font-medium ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                      {formatPrice(service)}
-                    </div>
-                    <div className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                      {service.recurring ? 'Recurring' : 'One-time'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${getStatusClass(service.status)}`}>
-                      {service.status.charAt(0).toUpperCase() + service.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                      {service.clientCount} clients
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-2">
-                      <Link 
-                        to={`/dashboard/admin/service-management/${service.id}`}
-                        className={`p-1 rounded ${theme === 'light' ? 'hover:bg-gray-100 text-gray-600' : 'hover:bg-[#253552] text-gray-300'}`}
-                      >
-                        <ArrowRight className="h-5 w-5" />
-                      </Link>
-                      <button className={`p-1 rounded ${theme === 'light' ? 'hover:bg-gray-100 text-gray-600' : 'hover:bg-[#253552] text-gray-300'}`}>
-                        <Edit className="h-5 w-5" />
-                      </button>
-                      <button className={`p-1 rounded ${theme === 'light' ? 'hover:bg-gray-100 text-red-500' : 'hover:bg-[#253552] text-red-400'}`}>
-                        <Trash className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                  </div>
+                  
+                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-2">
+                    <button className="p-1.5 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700">
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button className="p-1.5 rounded-full text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-gray-700">
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteService(service.id)}
+                      className="p-1.5 rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-gray-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-        
-        {filteredServices.length === 0 && (
-          <div className={`py-10 text-center ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-            No services found. Try adjusting your search or filters.
+            </div>
+            
+            {/* Desktop view - table layout */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400 cursor-pointer"
+                      onClick={() => handleSort('name')}
+                    >
+                      <span className="flex items-center">
+                        Service Name {renderSortIndicator('name')}
+                      </span>
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400 cursor-pointer"
+                      onClick={() => handleSort('category')}
+                    >
+                      <span className="flex items-center">
+                        Category {renderSortIndicator('category')}
+                      </span>
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400 cursor-pointer"
+                      onClick={() => handleSort('price')}
+                    >
+                      <span className="flex items-center">
+                        Price {renderSortIndicator('price')}
+                      </span>
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400 cursor-pointer"
+                      onClick={() => handleSort('clientCount')}
+                    >
+                      <span className="flex items-center">
+                        Clients {renderSortIndicator('clientCount')}
+                      </span>
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
+                    >
+                      Status
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
+                    >
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                  {filteredServices.map((service) => (
+                    <tr key={service.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                        {service.name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {service.category}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {formatPrice(service)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {service.clientCount}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <StatusBadge status={service.status} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end space-x-2">
+                          <button className="p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button className="p-1 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteService(service.id)}
+                            className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
-      </div>
-      
-      <div className="mt-5 flex justify-between items-center">
-        <div className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-          Showing {filteredServices.length} of {mockServices.length} services
-        </div>
-        
-        <div className="flex">
-          <button
-            className={`px-3 py-1 rounded-l-md border ${theme === 'light' ? 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' : 'bg-[#182032] border-[#2a3448] text-gray-300 hover:bg-[#1e2a45]'}`}
-            disabled={true}
-          >
-            Previous
-          </button>
-          <button
-            className={`px-3 py-1 rounded-r-md border-t border-b border-r ${theme === 'light' ? 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' : 'bg-[#182032] border-[#2a3448] text-gray-300 hover:bg-[#1e2a45]'}`}
-            disabled={true}
-          >
-            Next
-          </button>
-        </div>
       </div>
     </div>
   );

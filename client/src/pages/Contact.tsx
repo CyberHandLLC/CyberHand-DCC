@@ -163,7 +163,7 @@ const Contact: React.FC = () => {
                     <Send className="w-12 h-12 text-cyberhand-green mx-auto mb-4" />
                     <h3 className="text-xl font-bold mb-2">Message Sent!</h3>
                     <p className="text-white/70">
-                      Thank you for reaching out. We'll get back to you as soon as possible.
+                      Thank you for reaching out. We&apos;ll get back to you as soon as possible.
                     </p>
                   </div>
                 ) : (
@@ -268,7 +268,7 @@ const Contact: React.FC = () => {
                     
                     <div>
                       <p className="block text-sm font-medium mb-2">
-                        I'm interested in: (select all that apply)
+                        I&apos;m interested in: (select all that apply)
                       </p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {['Web Development', 'AI Integration', 'Cloud Hosting', 'Digital Marketing', 'Consulting', 'Support'].map(service => (
